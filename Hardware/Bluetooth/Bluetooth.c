@@ -27,71 +27,84 @@ void Bluetooth_SendHandler(uint8_t *Buff, uint16_t len) {
     }
 }
 
-void Bluetooth_ReceiveHandler(SensorData_t *data) {
-    if (!RxEnd_Flag) return;
+Bluetooth_Status_t Bluetooth_ReceiveHandler(SensorData_t *data) {
+    if (!RxEnd_Flag) return BT_STATUS_BUSY;
     RxEnd_Flag = 0;
 
-    // 判断数据是否完整
-    if (Receive_Buf_Size < 3) return;
-    if (Receive_Buf1[0] != '[') return;
-    if (Receive_Buf1[Receive_Buf_Size - 1] != ']') return;
+    /* 帧完整性：长度 / 首字节 '[' / 末字节 ']' */
+    if (Receive_Buf_Size < 3) return BT_STATUS_DATA_TOO_SHORT;
+    if (Receive_Buf1[0] != '[') return BT_STATUS_FRAME_ERROR;
+    if (Receive_Buf1[Receive_Buf_Size - 1] != ']') return BT_STATUS_FRAME_ERROR;
 
-    // 首次连接，初始化数据，
-    // 防止他一直初始化连接，加标志位判断是否初始化过
-    if (Bluetooth_Link_Init(data)) return;
-    // 取出主要数据
-    Bluetooth_GetData(data);
+    /* 握手包：到此为止，不能再往下当普通指令解析
+     * （否则 sscanf 匹配不上，会跟着多发一条错误应答） */
+    if (Bluetooth_Link_Init()) return BT_STATUS_HANDSHAKE;
+
+    /* 普通指令：解析结果直接作为返回值，由调用方决定怎么回话 */
+    return Bluetooth_GetData(data);
 }
 
-uint8_t Bluetooth_Link_Init(SensorData_t *data) {
-    static uint8_t Flag = 0;
-
-    if (Flag == 2) return 0;
-
-    char temp[64];
-    uint16_t len = 0;
-
-    /* 第一步：手机主动发起握手。
-     * 这里不再判 Flag —— 收到就回包并复位到 1。
-     * 否则手机断开重连后 Flag 仍停在 2，MCU 永远不再回包，握手会卡死（只能给板子断电）。 */
-    if (strstr(Receive_Buf1, "SUCCESSFUL CONNECTION") != NULL) {
-        Flag = 1;
-        len = sprintf(temp, "[SUCCESSFUL CONNECTION!]\n");
-        Bluetooth_SendHandler((uint8_t *) temp, len);
-        return 1;
-    }
-
-    /* 第二步：手机确认，MCU 回报当前阈值 */
-    if (strstr(Receive_Buf1, "**SUCCESSFUL CONNECTION**") != NULL) {
-        Flag = 2;
-        len = sprintf(temp, "[TEMP_MIN:%u;TEMP_MAX:%u;HUM_MIN:%u;HUM_MAX:%u]\n",
-                      data->Temperature_Alarm[0], data->Temperature_Alarm[1],
-                      data->Humidity_Alarm[0], data->Humidity_Alarm[1]);
-        Bluetooth_SendHandler((uint8_t *) temp, len);
-        return 1;
-    }
-    return 0;
+/* 一次性握手：手机发 [SUCCESSFUL CONNECTION!] → MCU 回一条即完成，没有第二次握手。
+ * 本函数只做“这包是不是握手包”的判断，回包交给 Bluetooth_ReplyByStatus(BT_STATUS_HANDSHAKE)。
+ * 刻意不加“只回一次”的静态标志：手机断线重连后那样就再也不会回包，握手会卡死（只能给板子断电）；
+ * 而回包本身是幂等的，手机重发一次握手也不会造成什么后果。 */
+uint8_t Bluetooth_Link_Init(void) {
+    return (strstr(Receive_Buf1, "SUCCESSFUL CONNECTION") != NULL) ? 1U : 0U;
 }
 
-void Bluetooth_GetData(SensorData_t *data) {
-    char temp[64];
-    uint16_t len = 0;
-
-    /* uint16_t：必须用 %hu（只写 2 字节）unsigned short */
+/* 只解析、返回结果，不发包；应答统一由 Bluetooth_ReplyByStatus() 发。
+ * uint16_t：必须用 %hu（只写 2 字节）unsigned short */
+Bluetooth_Status_t Bluetooth_GetData(SensorData_t *data) {
     if (sscanf(Receive_Buf1,
                "[TEMP_MIN:%hu;TEMP_MAX:%hu;HUM_MIN:%hu;HUM_MAX:%hu]",
                &data->Temperature_Alarm[0], &data->Temperature_Alarm[1],
                &data->Humidity_Alarm[0], &data->Humidity_Alarm[1]) == 4) {
-        len = sprintf(temp, "[SET OK!]\n");
-    } else if (strstr(Receive_Buf1, "LED_ON") != NULL) {
-        LED_State = 1;
-        len = sprintf(temp, "[SET OK!]\n");
-    } else if (strstr(Receive_Buf1, "LED_OFF") != NULL) {
-        LED_State = 0;
-        len = sprintf(temp, "[SET OK!]\n");
-    } else {
-        len = sprintf(temp, "[INSTRUCTION ERROR!]\n");
+        return BT_STATUS_SUCCESS;
     }
+
+    if (strstr(Receive_Buf1, "LED_ON") != NULL) {
+        LED_State = 1;
+        return BT_STATUS_SUCCESS;
+    }
+
+    if (strstr(Receive_Buf1, "LED_OFF") != NULL) {
+        LED_State = 0;
+        return BT_STATUS_SUCCESS;
+    }
+
+    return BT_STATUS_PARSE_ERROR;
+}
+
+/* 按接收处理的结果给手机回一条应答。手机靠它判断 MCU 的状态：
+ *   收到 [SET OK!] / [SUCCESSFUL CONNECTION!]  -> 表示已成功处理，手机停止重发；
+ *   收到 [FRAME ERROR!] / [DATA TOO SHORT!] / [PARSE ERROR!] -> 表示没处理成功，手机会重发上一条；
+ *   BT_STATUS_BUSY（本轮没收到完整帧）什么都不回，否则每轮都会白发一条。 */
+void Bluetooth_ReplyByStatus(Bluetooth_Status_t status) {
+    char temp[64];
+    uint16_t len;
+
+    switch (status) {
+        case BT_STATUS_HANDSHAKE:
+            len = sprintf(temp, "[SUCCESSFUL CONNECTION!]\n");
+            break;
+        case BT_STATUS_SUCCESS:
+            len = sprintf(temp, "[SET OK!]\n");
+            break;
+        case BT_STATUS_FRAME_ERROR:
+            len = sprintf(temp, "[FRAME ERROR!]\n");
+            break;
+        case BT_STATUS_DATA_TOO_SHORT:
+            len = sprintf(temp, "[DATA TOO SHORT!]\n");
+            break;
+        case BT_STATUS_PARSE_ERROR:
+            len = sprintf(temp, "[PARSE ERROR!]\n");
+            break;
+
+        case BT_STATUS_BUSY:
+        default:
+            return;
+    }
+
     Bluetooth_SendHandler((uint8_t *) temp, len);
 }
 

@@ -99,58 +99,58 @@ SensorData_t SensorData = {
 /* Definitions for Init_Task */
 osThreadId_t Init_TaskHandle;
 const osThreadAttr_t Init_Task_attributes = {
-  .name = "Init_Task",
-  .stack_size = 128 * 4,
-  .priority = (osPriority_t) osPriorityHigh1,
+        .name = "Init_Task",
+        .stack_size = 128 * 4,
+        .priority = (osPriority_t) osPriorityHigh1,
 };
 /* Definitions for LED_Task */
 osThreadId_t LED_TaskHandle;
 const osThreadAttr_t LED_Task_attributes = {
-  .name = "LED_Task",
-  .stack_size = 128 * 4,
-  .priority = (osPriority_t) osPriorityNormal,
+        .name = "LED_Task",
+        .stack_size = 128 * 4,
+        .priority = (osPriority_t) osPriorityNormal,
 };
 /* Definitions for LCD_Task */
 osThreadId_t LCD_TaskHandle;
 const osThreadAttr_t LCD_Task_attributes = {
-  .name = "LCD_Task",
-  .stack_size = 256 * 4,
-  .priority = (osPriority_t) osPriorityLow,
+        .name = "LCD_Task",
+        .stack_size = 256 * 4,
+        .priority = (osPriority_t) osPriorityLow,
 };
 /* Definitions for DHT11_Task */
 osThreadId_t DHT11_TaskHandle;
 const osThreadAttr_t DHT11_Task_attributes = {
-  .name = "DHT11_Task",
-  .stack_size = 128 * 4,
-  .priority = (osPriority_t) osPriorityHigh,
+        .name = "DHT11_Task",
+        .stack_size = 128 * 4,
+        .priority = (osPriority_t) osPriorityHigh,
 };
 /* Definitions for Bluetooth_Task */
 osThreadId_t Bluetooth_TaskHandle;
 const osThreadAttr_t Bluetooth_Task_attributes = {
-  .name = "Bluetooth_Task",
-  .stack_size = 512 * 4,
-  .priority = (osPriority_t) osPriorityNormal,
+        .name = "Bluetooth_Task",
+        .stack_size = 512 * 4,
+        .priority = (osPriority_t) osPriorityNormal,
 };
 /* Definitions for Humidifier_Task */
 osThreadId_t Humidifier_TaskHandle;
 const osThreadAttr_t Humidifier_Task_attributes = {
-  .name = "Humidifier_Task",
-  .stack_size = 128 * 4,
-  .priority = (osPriority_t) osPriorityHigh,
+        .name = "Humidifier_Task",
+        .stack_size = 128 * 4,
+        .priority = (osPriority_t) osPriorityHigh,
 };
 /* Definitions for Warm_Task */
 osThreadId_t Warm_TaskHandle;
 const osThreadAttr_t Warm_Task_attributes = {
-  .name = "Warm_Task",
-  .stack_size = 128 * 4,
-  .priority = (osPriority_t) osPriorityHigh,
+        .name = "Warm_Task",
+        .stack_size = 128 * 4,
+        .priority = (osPriority_t) osPriorityHigh,
 };
 /* Definitions for Fan_Task */
 osThreadId_t Fan_TaskHandle;
 const osThreadAttr_t Fan_Task_attributes = {
-  .name = "Fan_Task",
-  .stack_size = 128 * 4,
-  .priority = (osPriority_t) osPriorityHigh,
+        .name = "Fan_Task",
+        .stack_size = 128 * 4,
+        .priority = (osPriority_t) osPriorityHigh,
 };
 
 /* Private function prototypes -----------------------------------------------*/
@@ -175,12 +175,19 @@ osEventFlagsId_t EF_SensorData;
 /* USER CODE END FunctionPrototypes */
 
 void Init_StartTask(void *argument);
+
 void LED_StartTask(void *argument);
+
 void LCD_StartTask(void *argument);
+
 void DHT11_StartTask(void *argument);
+
 void Bluetooth_StartTask(void *argument);
+
 void Humidifier_StartTask(void *argument);
+
 void Warm_StartTask(void *argument);
+
 void Fan_StartTask(void *argument);
 
 void MX_FREERTOS_Init(void); /* (MISRA C 2004 rule 8.1) */
@@ -191,17 +198,17 @@ void MX_FREERTOS_Init(void); /* (MISRA C 2004 rule 8.1) */
   * @retval None
   */
 void MX_FREERTOS_Init(void) {
-  /* USER CODE BEGIN Init */
+    /* USER CODE BEGIN Init */
 
-  /* USER CODE END Init */
+    /* USER CODE END Init */
 
-  /* USER CODE BEGIN RTOS_MUTEX */
+    /* USER CODE BEGIN RTOS_MUTEX */
     /* add mutexes, ... */
     Mutex_SensorData = osMutexNew(&attr_SensorData);
 
-  /* USER CODE END RTOS_MUTEX */
+    /* USER CODE END RTOS_MUTEX */
 
-  /* USER CODE BEGIN RTOS_SEMAPHORES */
+    /* USER CODE BEGIN RTOS_SEMAPHORES */
     /* add semaphores, ... */
     /* 全部初始可用 */
     Sem2_LED = osSemaphoreNew(1, 1, NULL);
@@ -209,51 +216,51 @@ void MX_FREERTOS_Init(void) {
     Sem2_DHT11 = osSemaphoreNew(1, 1, NULL);
     Sem2_Bluetooth = osSemaphoreNew(1, 1, NULL);
 
-  /* USER CODE END RTOS_SEMAPHORES */
+    /* USER CODE END RTOS_SEMAPHORES */
 
-  /* USER CODE BEGIN RTOS_TIMERS */
+    /* USER CODE BEGIN RTOS_TIMERS */
     /* start timers, add new ones, ... */
-  /* USER CODE END RTOS_TIMERS */
+    /* USER CODE END RTOS_TIMERS */
 
-  /* USER CODE BEGIN RTOS_QUEUES */
+    /* USER CODE BEGIN RTOS_QUEUES */
     /* add queues, ... */
     /* 已改为"共享数据 SensorData + Mutex_SensorData + EF_SensorData"，
      * 不再使用消息队列 */
-  /* USER CODE END RTOS_QUEUES */
+    /* USER CODE END RTOS_QUEUES */
 
-  /* Create the thread(s) */
-  /* creation of Init_Task */
-  Init_TaskHandle = osThreadNew(Init_StartTask, NULL, &Init_Task_attributes);
+    /* Create the thread(s) */
+    /* creation of Init_Task */
+    Init_TaskHandle = osThreadNew(Init_StartTask, NULL, &Init_Task_attributes);
 
-  /* creation of LED_Task */
-  LED_TaskHandle = osThreadNew(LED_StartTask, NULL, &LED_Task_attributes);
+    /* creation of LED_Task */
+    LED_TaskHandle = osThreadNew(LED_StartTask, NULL, &LED_Task_attributes);
 
-  /* creation of LCD_Task */
-  LCD_TaskHandle = osThreadNew(LCD_StartTask, NULL, &LCD_Task_attributes);
+    /* creation of LCD_Task */
+    LCD_TaskHandle = osThreadNew(LCD_StartTask, NULL, &LCD_Task_attributes);
 
-  /* creation of DHT11_Task */
-  DHT11_TaskHandle = osThreadNew(DHT11_StartTask, NULL, &DHT11_Task_attributes);
+    /* creation of DHT11_Task */
+    DHT11_TaskHandle = osThreadNew(DHT11_StartTask, NULL, &DHT11_Task_attributes);
 
-  /* creation of Bluetooth_Task */
-  Bluetooth_TaskHandle = osThreadNew(Bluetooth_StartTask, NULL, &Bluetooth_Task_attributes);
+    /* creation of Bluetooth_Task */
+    Bluetooth_TaskHandle = osThreadNew(Bluetooth_StartTask, NULL, &Bluetooth_Task_attributes);
 
-  /* creation of Humidifier_Task */
-  Humidifier_TaskHandle = osThreadNew(Humidifier_StartTask, NULL, &Humidifier_Task_attributes);
+    /* creation of Humidifier_Task */
+    Humidifier_TaskHandle = osThreadNew(Humidifier_StartTask, NULL, &Humidifier_Task_attributes);
 
-  /* creation of Warm_Task */
-  Warm_TaskHandle = osThreadNew(Warm_StartTask, NULL, &Warm_Task_attributes);
+    /* creation of Warm_Task */
+    Warm_TaskHandle = osThreadNew(Warm_StartTask, NULL, &Warm_Task_attributes);
 
-  /* creation of Fan_Task */
-  Fan_TaskHandle = osThreadNew(Fan_StartTask, NULL, &Fan_Task_attributes);
+    /* creation of Fan_Task */
+    Fan_TaskHandle = osThreadNew(Fan_StartTask, NULL, &Fan_Task_attributes);
 
-  /* USER CODE BEGIN RTOS_THREADS */
+    /* USER CODE BEGIN RTOS_THREADS */
     /* add threads, ... */
-  /* USER CODE END RTOS_THREADS */
+    /* USER CODE END RTOS_THREADS */
 
-  /* USER CODE BEGIN RTOS_EVENTS */
+    /* USER CODE BEGIN RTOS_EVENTS */
     /* add events, ... */
     EF_SensorData = osEventFlagsNew(NULL);
-  /* USER CODE END RTOS_EVENTS */
+    /* USER CODE END RTOS_EVENTS */
 
 }
 
@@ -264,9 +271,8 @@ void MX_FREERTOS_Init(void) {
   * @retval None
   */
 /* USER CODE END Header_Init_StartTask */
-void Init_StartTask(void *argument)
-{
-  /* USER CODE BEGIN Init_StartTask */
+void Init_StartTask(void *argument) {
+    /* USER CODE BEGIN Init_StartTask */
     DWT_Init();
     /* LCD 没有显存、是直接写屏；字符/文字函数会同时填前景和背景像素，
      * 所以按固定坐标、固定宽度重绘即可，既不会闪烁也不会留残影。 */
@@ -283,7 +289,7 @@ void Init_StartTask(void *argument)
     HAL_TIM_Base_Start_IT(&htim1);
 
     osThreadExit();
-  /* USER CODE END Init_StartTask */
+    /* USER CODE END Init_StartTask */
 }
 
 /* USER CODE BEGIN Header_LED_StartTask */
@@ -293,22 +299,21 @@ void Init_StartTask(void *argument)
   * @retval None
   */
 /* USER CODE END Header_LED_StartTask */
-void LED_StartTask(void *argument)
-{
-  /* USER CODE BEGIN LED_StartTask */
+void LED_StartTask(void *argument) {
+    /* USER CODE BEGIN LED_StartTask */
     /* Infinite loop */
     for (;;) {
         osSemaphoreAcquire(Sem2_LED, osWaitForever);
 
         // HAL_GPIO_WritePin(GPIOC, GPIO_PIN_13, GPIO_PIN_RESET);
-        if(LED_State==1) {
+        if (LED_State == 1) {
             LED_Flip(LED_PC13, 500);
-        }else{
+        } else {
             LED_Off(LED_PC13);
         }
 
     }
-  /* USER CODE END LED_StartTask */
+    /* USER CODE END LED_StartTask */
 }
 
 /* USER CODE BEGIN Header_LCD_StartTask */
@@ -318,9 +323,8 @@ void LED_StartTask(void *argument)
 * @retval None
 */
 /* USER CODE END Header_LCD_StartTask */
-void LCD_StartTask(void *argument)
-{
-  /* USER CODE BEGIN LCD_StartTask */
+void LCD_StartTask(void *argument) {
+    /* USER CODE BEGIN LCD_StartTask */
     /* Infinite loop */
     for (;;) {
         SensorData_t data;
@@ -363,27 +367,27 @@ void LCD_StartTask(void *argument)
                 /* ---- 温度：标签 Lie(2) / 数值 Lie(8) / 单位 Lie(11) 三列对齐
                  *      （单位列与下面"上限"标签列同列 = Lie(11)，视觉更整齐；
                  *        数值列取 Lie(8) 是为了湿度可能出现的 3 位数（100%RH）留出余量） ---- */
-                LCD_DisplayText  (Lie(2),  Hang(3), LCD_TXT_TEMP);
-                LCD_DisplayNumber(Lie(8),  Hang(3), data.Temperature, 2);
-                LCD_DisplayText  (Lie(11), Hang(3), "℃");
-                LCD_DisplayText  (Lie(2),  Hang(4), LCD_TXT_LOW);
-                LCD_DisplayNumber(Lie(7),  Hang(4), data.Temperature_Alarm[0], 2);
-                LCD_DisplayText  (Lie(11), Hang(4), LCD_TXT_HIGH);
+                LCD_DisplayText(Lie(2), Hang(3), LCD_TXT_TEMP);
+                LCD_DisplayNumber(Lie(8), Hang(3), data.Temperature, 2);
+                LCD_DisplayText(Lie(11), Hang(3), "℃");
+                LCD_DisplayText(Lie(2), Hang(4), LCD_TXT_LOW);
+                LCD_DisplayNumber(Lie(7), Hang(4), data.Temperature_Alarm[0], 2);
+                LCD_DisplayText(Lie(11), Hang(4), LCD_TXT_HIGH);
                 LCD_DisplayNumber(Lie(16), Hang(4), data.Temperature_Alarm[1], 2);
 
                 /* ---- 湿度：与温度同样的三列对齐 ---- */
-                LCD_DisplayText  (Lie(2),  Hang(6), LCD_TXT_HUMI);
-                LCD_DisplayNumber(Lie(8),  Hang(6), data.Humidity, 2);
-                LCD_DisplayText  (Lie(11), Hang(6), "%RH");
-                LCD_DisplayText  (Lie(2),  Hang(7), LCD_TXT_LOW);
-                LCD_DisplayNumber(Lie(7),  Hang(7), data.Humidity_Alarm[0], 2);
-                LCD_DisplayText  (Lie(11), Hang(7), LCD_TXT_HIGH);
+                LCD_DisplayText(Lie(2), Hang(6), LCD_TXT_HUMI);
+                LCD_DisplayNumber(Lie(8), Hang(6), data.Humidity, 2);
+                LCD_DisplayText(Lie(11), Hang(6), "%RH");
+                LCD_DisplayText(Lie(2), Hang(7), LCD_TXT_LOW);
+                LCD_DisplayNumber(Lie(7), Hang(7), data.Humidity_Alarm[0], 2);
+                LCD_DisplayText(Lie(11), Hang(7), LCD_TXT_HIGH);
                 LCD_DisplayNumber(Lie(16), Hang(7), data.Humidity_Alarm[1], 2);
             }
 
         }
     }
-  /* USER CODE END LCD_StartTask */
+    /* USER CODE END LCD_StartTask */
 }
 
 /* USER CODE BEGIN Header_DHT11_StartTask */
@@ -393,9 +397,8 @@ void LCD_StartTask(void *argument)
 * @retval None
 */
 /* USER CODE END Header_DHT11_StartTask */
-void DHT11_StartTask(void *argument)
-{
-  /* USER CODE BEGIN DHT11_StartTask */
+void DHT11_StartTask(void *argument) {
+    /* USER CODE BEGIN DHT11_StartTask */
     /* Infinite loop */
     uint8_t temperature, humidity;
     for (;;) {
@@ -413,7 +416,7 @@ void DHT11_StartTask(void *argument)
             }
         }
     }
-  /* USER CODE END DHT11_StartTask */
+    /* USER CODE END DHT11_StartTask */
 }
 
 /* USER CODE BEGIN Header_Bluetooth_StartTask */
@@ -423,13 +426,13 @@ void DHT11_StartTask(void *argument)
 * @retval None
 */
 /* USER CODE END Header_Bluetooth_StartTask */
-void Bluetooth_StartTask(void *argument)
-{
-  /* USER CODE BEGIN Bluetooth_StartTask */
+void Bluetooth_StartTask(void *argument) {
+    /* USER CODE BEGIN Bluetooth_StartTask */
     /* Infinite loop */
     for (;;) {
         uint16_t len;
         uint32_t Flag;
+        Bluetooth_Status_t st = BT_STATUS_BUSY;
         osSemaphoreAcquire(Sem2_Bluetooth, osWaitForever);
 
         /* 1) 先处理接收（回复优先）。
@@ -440,16 +443,20 @@ void Bluetooth_StartTask(void *argument)
          *      而且上报每秒一次、接收是事件驱动，两者几乎必然落在同一轮里。
          *    把接收提到前面、并让它每轮都执行，回复就几乎总能在发送线路空闲时发出。 */
         if (osMutexAcquire(Mutex_SensorData, 0) == osOK) {
-            Bluetooth_ReceiveHandler(&SensorData);
+            st = Bluetooth_ReceiveHandler(&SensorData);
             osMutexRelease(Mutex_SensorData);
         }
+        /* 回话放在锁外发：Bluetooth_SendHandler 在发送线路忙时会 osDelay 等待，
+         * 占着 Mutex 阻塞会拖住 DHT11 写共享数据。
+         * 手机收到 [SET OK!] 就停止重发，收到 [XXX ERROR!] 就重发上一条。 */
+        Bluetooth_ReplyByStatus(st);
 
         /* 2) 再处理上报（DHT11 更新时才有 EVENT_BLUE_UPDATE） */
         Flag = osEventFlagsWait(EF_SensorData, EVENT_BLUE_UPDATE, osFlagsWaitAll, 0);
 
         if (Flag & EVENT_BLUE_UPDATE) {
             if (osMutexAcquire(Mutex_SensorData, 0) == osOK) {
-                char temp[50]={0};
+                char temp[50] = {0};
 
                 len = sprintf(temp, "温度:%u%% 湿度:%u%%\n",
                               SensorData.Temperature, SensorData.Humidity);
@@ -458,7 +465,7 @@ void Bluetooth_StartTask(void *argument)
             }
         }
     }
-  /* USER CODE END Bluetooth_StartTask */
+    /* USER CODE END Bluetooth_StartTask */
 }
 
 /* USER CODE BEGIN Header_Humidifier_StartTask */
@@ -468,9 +475,8 @@ void Bluetooth_StartTask(void *argument)
 * @retval None
 */
 /* USER CODE END Header_Humidifier_StartTask */
-void Humidifier_StartTask(void *argument)
-{
-  /* USER CODE BEGIN Humidifier_StartTask */
+void Humidifier_StartTask(void *argument) {
+    /* USER CODE BEGIN Humidifier_StartTask */
     /* Infinite loop */
     //根据湿度，进行加湿
     for (;;) {
@@ -489,7 +495,7 @@ void Humidifier_StartTask(void *argument)
 
         }
     }
-  /* USER CODE END Humidifier_StartTask */
+    /* USER CODE END Humidifier_StartTask */
 }
 
 /* USER CODE BEGIN Header_Warm_StartTask */
@@ -499,9 +505,8 @@ void Humidifier_StartTask(void *argument)
 * @retval None
 */
 /* USER CODE END Header_Warm_StartTask */
-void Warm_StartTask(void *argument)
-{
-  /* USER CODE BEGIN Warm_StartTask */
+void Warm_StartTask(void *argument) {
+    /* USER CODE BEGIN Warm_StartTask */
     /* Infinite loop */
     //根据温度是否太低，进行升温
     for (;;) {
@@ -521,7 +526,7 @@ void Warm_StartTask(void *argument)
 
 
     }
-  /* USER CODE END Warm_StartTask */
+    /* USER CODE END Warm_StartTask */
 }
 
 /* USER CODE BEGIN Header_Fan_StartTask */
@@ -531,9 +536,8 @@ void Warm_StartTask(void *argument)
 * @retval None
 */
 /* USER CODE END Header_Fan_StartTask */
-void Fan_StartTask(void *argument)
-{
-  /* USER CODE BEGIN Fan_StartTask */
+void Fan_StartTask(void *argument) {
+    /* USER CODE BEGIN Fan_StartTask */
     /* Infinite loop */
     // 根据温度，进行降温
     for (;;) {
@@ -557,7 +561,7 @@ void Fan_StartTask(void *argument)
             }
         }
     }
-  /* USER CODE END Fan_StartTask */
+    /* USER CODE END Fan_StartTask */
 }
 
 /* Private application code --------------------------------------------------*/
