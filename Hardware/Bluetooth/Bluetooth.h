@@ -22,25 +22,19 @@ typedef enum {
     BT_STATUS_PARSE_ERROR        // 数据解析失败
 } Bluetooth_Status_t;
 
+/* 解析出的命令种类：调用方据此决定要不要把 data 写回共享区 SensorData。
+ * 需要区分是因为：阈值包要写 SensorData（得加锁），
+ * 而 LED 指令只改 LED_State（LED_State_Set 内部已经自己加锁了）。 */
+typedef enum {
+    BT_CMD_NONE = 0,      /* 什么都没解析出来 */
+    BT_CMD_THRESHOLD,     /* 阈值包：data 的 4 个 Alarm 字段有效，需要写回 SensorData */
+    BT_CMD_LED            /* LED 指令：已直接作用到 LED_State，不需要写回 SensorData */
+} Bluetooth_CmdKind_t;
+
 void Bluetooth_SendHandler(uint8_t *Buff, uint16_t len);
-
-/* 接收处理：返回本次处理结果（Bluetooth_Status_t），调用方据此回话。
- * 注意：本函数内部不再自己发应答，统一交给 Bluetooth_ReplyByStatus()。 */
-Bluetooth_Status_t Bluetooth_ReceiveHandler(SensorData_t *data);
-
-/* 一次性握手：只判断"这包是不是握手包"，返回 1 = 是，调用方不要再当普通指令解析。
- * 不再自己发包；回包由 Bluetooth_ReplyByStatus(BT_STATUS_HANDSHAKE) 统一负责。 */
+Bluetooth_Status_t Bluetooth_ReceiveHandler(SensorData_t *data, Bluetooth_CmdKind_t *kind);
 uint8_t Bluetooth_Link_Init(void);
-
-Bluetooth_Status_t Bluetooth_GetData(SensorData_t *data);
-
-/* 按接收处理结果给手机回一条应答 —— 手机靠它判断 MCU 的状态，决定要不要重发：
- *   BT_STATUS_SUCCESS   -> [SET OK!]                已成功处理，手机停止重发
- *   BT_STATUS_HANDSHAKE -> [SUCCESSFUL CONNECTION!] 握手完成，手机进入下一步
- *   BT_STATUS_FRAME_ERROR / DATA_TOO_SHORT / PARSE_ERROR
- *                       -> [FRAME ERROR!] / [DATA TOO SHORT!] / [PARSE ERROR!]
- *                          说明这条没被成功处理，手机会重发上一条
- *   BT_STATUS_BUSY      -> 不回话（本轮没收到完整帧，回了反而每轮都多发一条） */
+Bluetooth_Status_t Bluetooth_GetData(SensorData_t *data, Bluetooth_CmdKind_t *kind);
 void Bluetooth_ReplyByStatus(Bluetooth_Status_t status);
 
 #endif //PROJECT_BLUETOOTH_H

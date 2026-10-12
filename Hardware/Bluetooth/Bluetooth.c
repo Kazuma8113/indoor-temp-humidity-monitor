@@ -27,7 +27,8 @@ void Bluetooth_SendHandler(uint8_t *Buff, uint16_t len) {
     }
 }
 
-Bluetooth_Status_t Bluetooth_ReceiveHandler(SensorData_t *data) {
+Bluetooth_Status_t Bluetooth_ReceiveHandler(SensorData_t *data, Bluetooth_CmdKind_t *kind) {
+    if (kind != NULL) *kind = BT_CMD_NONE;
     if (!RxEnd_Flag) return BT_STATUS_BUSY;
     RxEnd_Flag = 0;
 
@@ -40,8 +41,8 @@ Bluetooth_Status_t Bluetooth_ReceiveHandler(SensorData_t *data) {
      * （否则 sscanf 匹配不上，会跟着多发一条错误应答） */
     if (Bluetooth_Link_Init()) return BT_STATUS_HANDSHAKE;
 
-    /* 普通指令：解析结果直接作为返回值，由调用方决定怎么回话 */
-    return Bluetooth_GetData(data);
+    /* 普通指令：解析结果写进调用方给的局部副本，状态由调用方决定怎么回话 */
+    return Bluetooth_GetData(data, kind);
 }
 
 /* 一次性握手：手机发 [SUCCESSFUL CONNECTION!] → MCU 回一条即完成，没有第二次握手。
@@ -53,22 +54,30 @@ uint8_t Bluetooth_Link_Init(void) {
 }
 
 /* 只解析、返回结果，不发包；应答统一由 Bluetooth_ReplyByStatus() 发。
+ * 解析结果写进 data —— 那是调用方传进来的**局部副本**，共享区 SensorData
+ * 由调用方自己决定什么时候加锁写回（见 Bluetooth_StartTask 的三段式）。
  * uint16_t：必须用 %hu（只写 2 字节）unsigned short */
-Bluetooth_Status_t Bluetooth_GetData(SensorData_t *data) {
+Bluetooth_Status_t Bluetooth_GetData(SensorData_t *data, Bluetooth_CmdKind_t *kind) {
+    if (kind != NULL) *kind = BT_CMD_NONE;
+
+    /* 阈值包：只落进局部副本，不在这里碰共享区 */
     if (sscanf(Receive_Buf1,
                "[TEMP_MIN:%hu;TEMP_MAX:%hu;HUM_MIN:%hu;HUM_MAX:%hu]",
                &data->Temperature_Alarm[0], &data->Temperature_Alarm[1],
                &data->Humidity_Alarm[0], &data->Humidity_Alarm[1]) == 4) {
+        if (kind != NULL) *kind = BT_CMD_THRESHOLD;
         return BT_STATUS_SUCCESS;
     }
 
     if (strstr(Receive_Buf1, "LED_ON") != NULL) {
-        LED_State = 1;
+        LED_State_Set(1);            /* 内部自带 Mutex_LedState，这里不用再加锁 */
+        if (kind != NULL) *kind = BT_CMD_LED;
         return BT_STATUS_SUCCESS;
     }
 
     if (strstr(Receive_Buf1, "LED_OFF") != NULL) {
-        LED_State = 0;
+        LED_State_Set(0);
+        if (kind != NULL) *kind = BT_CMD_LED;
         return BT_STATUS_SUCCESS;
     }
 

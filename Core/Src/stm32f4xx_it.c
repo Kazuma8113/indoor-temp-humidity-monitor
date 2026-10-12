@@ -23,7 +23,6 @@
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
 #include "usart.h"
-#include "Utility.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -64,7 +63,18 @@ extern UART_HandleTypeDef huart1;
 extern TIM_HandleTypeDef htim6;
 
 /* USER CODE BEGIN EV */
-
+#define BUSY_LOOP_PER_MS  16000U
+void Error_Blink(uint32_t on_ms, uint32_t off_ms)
+{
+    for (;;) {
+        HAL_GPIO_WritePin(GPIOC, GPIO_PIN_13, GPIO_PIN_RESET);   // 点亮
+        for (volatile uint32_t i = 0; i < on_ms * BUSY_LOOP_PER_MS; i++) {
+        }
+        HAL_GPIO_WritePin(GPIOC, GPIO_PIN_13, GPIO_PIN_SET);     // 熄灭
+        for (volatile uint32_t i = 0; i < off_ms * BUSY_LOOP_PER_MS; i++) {
+        }
+    }
+}
 /* USER CODE END EV */
 
 /******************************************************************************/
