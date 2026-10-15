@@ -115,12 +115,11 @@ int main(void)
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
-  while (1)
-  {
+    while (1) {
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
-  }
+    }
   /* USER CODE END 3 */
 }
 
@@ -188,6 +187,11 @@ void HAL_UART_ErrorCallback(UART_HandleTypeDef *huart) {
         __HAL_UART_CLEAR_PEFLAG(huart);     // 清除奇偶校验错误标志位
         __HAL_UART_CLEAR_FEFLAG(huart);     // 清除停止位错误标志位
         __HAL_UART_CLEAR_NEFLAG(huart);     // 清除噪声错误标志位
+
+        TxEnd_Flag = 1;                     // 重启串口发送完毕标志位
+
+        // 重启DMA接收
+        HAL_UART_Receive_DMA(&huart1, (uint8_t *) Rx_Buf1, UART_BUFF_SIZE);
     }
 }
 /* USER CODE END 4 */
@@ -206,24 +210,29 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
     if (htim->Instance == TIM1) {
         static uint8_t LED_Count;
         static uint8_t LCD_Count;
-        static uint16_t DHT11_Count;   /* 注意：周期 1000 ms 超出 uint8_t 范围，必须用 uint16_t */
+        static uint16_t DHT11_Count;
         static uint8_t Bluetooth_Count;
 
-        /* 用二值信号量控制CPU资源占用，避免高优先级任务一直占用CPU */
-        if (++LED_Count >= 100 && osSemaphoreRelease(Sem2_LED) == osOK) {
+        /* 用二值信号量控制CPU资源占用，避免高优先级任务一直占用CPU
+         * 计数器必须"无条件"清零：防止信号量还是满的（任务没来得及取走）时，计数值溢出*/
+        if (++LED_Count >= 100) {
             LED_Count = 0;
+            (void) osSemaphoreRelease(Sem2_LED);
         }
 
-        if (++LCD_Count >= 100 && osSemaphoreRelease(Sem2_LCD) == osOK) {
+        if (++LCD_Count >= 100) {
             LCD_Count = 0;
+            (void) osSemaphoreRelease(Sem2_LCD);
         }
 
-        if (++DHT11_Count >= 1000 && osSemaphoreRelease(Sem2_DHT11) == osOK) {
+        if (++DHT11_Count >= 1000) {
             DHT11_Count = 0;
+            (void) osSemaphoreRelease(Sem2_DHT11);
         }
 
-        if (++Bluetooth_Count >= 200 && osSemaphoreRelease(Sem2_Bluetooth) == osOK) {
+        if (++Bluetooth_Count >= 200) {
             Bluetooth_Count = 0;
+            (void) osSemaphoreRelease(Sem2_Bluetooth);
         }
     }
   /* USER CODE END Callback 0 */
@@ -243,11 +252,10 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 void Error_Handler(void)
 {
   /* USER CODE BEGIN Error_Handler_Debug */
-  /* User can add his own implementation to report the HAL error return state */
-  __disable_irq();
-  while (1)
-  {
-  }
+    /* User can add his own implementation to report the HAL error return state */
+    __disable_irq();
+    while (1) {
+    }
   /* USER CODE END Error_Handler_Debug */
 }
 #ifdef USE_FULL_ASSERT

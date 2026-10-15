@@ -70,13 +70,13 @@ Bluetooth_Status_t Bluetooth_GetData(SensorData_t *data, Bluetooth_CmdKind_t *ki
     }
 
     if (strstr(Receive_Buf1, "LED_ON") != NULL) {
-        LED_State_Set(1);            /* 内部自带 Mutex_LedState，这里不用再加锁 */
+        LED_State_Set(LED_STATE_ON);    /* 内部自带 Mutex_LedState，这里不用再加锁 */
         if (kind != NULL) *kind = BT_CMD_LED;
         return BT_STATUS_SUCCESS;
     }
 
     if (strstr(Receive_Buf1, "LED_OFF") != NULL) {
-        LED_State_Set(0);
+        LED_State_Set(LED_STATE_OFF);
         if (kind != NULL) *kind = BT_CMD_LED;
         return BT_STATUS_SUCCESS;
     }

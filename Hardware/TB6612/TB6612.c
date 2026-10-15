@@ -8,13 +8,13 @@
 // PWMA -> TIM2_CH1 (PA0)
 // STBY -> PA3
 
-GPIO_PinStruct AIN1={GPIOA,GPIO_PIN_1};
-GPIO_PinStruct AIN2={GPIOA,GPIO_PIN_2};
-GPIO_PinStruct PWMA={GPIOA,GPIO_PIN_0};
-GPIO_PinStruct STBY={GPIOA,GPIO_PIN_3};
+GPIO_PinStruct AIN1 = {GPIOE, GPIO_PIN_4};
+GPIO_PinStruct AIN2 = {GPIOE, GPIO_PIN_5};
+GPIO_PinStruct STBY = {GPIOE, GPIO_PIN_6};
+GPIO_PinStruct PWMA = {GPIOA, GPIO_PIN_15};
+
 // 初始化电机（启动 PWM）
-void Motor_Init(void)
-{
+void Motor_Init(void) {
     // 启动 TIM2 CH1 PWM
     HAL_TIM_PWM_Start(&htim2, TIM_CHANNEL_1);
 
@@ -30,10 +30,8 @@ void Motor_Init(void)
 }
 
 // 设置电机方向
-void Motor_SetDir(MotorDir dir)
-{
-    switch(dir)
-    {
+void Motor_SetDir(MotorDir dir) {
+    switch (dir) {
         case MOTOR_FORWARD:
             HAL_GPIO_WritePin(AIN1.Port, AIN1.Pin, GPIO_PIN_SET);
             HAL_GPIO_WritePin(AIN2.Port, AIN2.Pin, GPIO_PIN_RESET);
@@ -53,9 +51,8 @@ void Motor_SetDir(MotorDir dir)
 }
 
 // 设置电机速度 (占空比 0~100%)
-void Motor_SetSpeed(uint16_t duty)
-{
-    if(duty > 100) duty = 100; // 限制最大值
+void Motor_SetSpeed(uint16_t duty) {
+    if (duty > 100) duty = 100; // 限制最大值
 
     // 计算 CCR 值
     uint32_t arr = __HAL_TIM_GET_AUTORELOAD(&htim2);

@@ -91,7 +91,7 @@
 /*!< Uncomment the following line if you need to relocate the vector table
      anywhere in Flash or Sram, else the vector table is kept at the automatic
      remap of boot address selected */
-/* #define USER_VECT_TAB_ADDRESS */
+#define USER_VECT_TAB_ADDRESS
 
 #if defined(USER_VECT_TAB_ADDRESS)
 /*!< Uncomment the following line if you need to relocate your vector Table
@@ -105,8 +105,12 @@
                                                      This value must be a multiple of 0x200. */
 #endif /* VECT_TAB_SRAM */
 #if !defined(VECT_TAB_OFFSET)
-#define VECT_TAB_OFFSET         0x00000000U     /*!< Vector Table offset field.
-                                                     This value must be a multiple of 0x200. */
+/* A/B 双槽：本工程默认编成 **Slot A**（0x08020000），偏移 0x20000。
+ * ⚠️ 必须与 STM32F407ZGTX_FLASH.ld 里的 FLASH ORIGIN 成对修改 ——
+ *    只改一边，SystemInit() 会把 SCB->VTOR 指到错误的地方，跳过去必跑飞。
+ *    另出一份 Slot B 的 bin 时这里改成 0x00060000U。 */
+#define VECT_TAB_OFFSET         0x00020000U     /*!< Vector Table offset field. This value must be a multiple of 0x200. */
+// #define VECT_TAB_OFFSET         0x00000000U
 #endif /* VECT_TAB_OFFSET */
 #endif /* USER_VECT_TAB_ADDRESS */
 /******************************************************************************/

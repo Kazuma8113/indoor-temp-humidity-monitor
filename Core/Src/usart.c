@@ -44,7 +44,7 @@ void MX_USART1_UART_Init(void)
 
   /* USER CODE END USART1_Init 1 */
   huart1.Instance = USART1;
-  huart1.Init.BaudRate = 9600;
+  huart1.Init.BaudRate = 115200;
   huart1.Init.WordLength = UART_WORDLENGTH_8B;
   huart1.Init.StopBits = UART_STOPBITS_1;
   huart1.Init.Parity = UART_PARITY_NONE;
@@ -166,31 +166,84 @@ void Usart1_Init(void) {
     HAL_UART_Receive_DMA(&huart1, (uint8_t *) Rx_Buf1, UART_BUFF_SIZE); // 开启UART + DMA 数据接收
 }
 
+/* ==================== 接收「成帧累积」====================
+ * 手机下发的一条命令（如 [TEMP_MIN:..;TEMP_MAX:..;..]）经 HC-08 会被拆成多个
+ * BLE 包先后到达，每到一个包就触发一次 IDLE 中断。
+ * 若像以前那样"每次 IDLE 都把本段直接当成一帧"，拆开的碎片会被判成 [FRAME ERROR!]。
+ *
+ * 这里把每次到达的碎片追加到 Frame_Buf，直到凑出完整的 "[ ... ]" 才交给上层
+ * （写到 Receive_Buf1 + 置 RxEnd_Flag）。上层 Bluetooth.c 因此完全不用改：
+ * 它那两句 `Receive_Buf1[0]=='['` / `末字节==']'` 现在恒成立。
+ *
+ * ⚠️ 必须放在中断里做：Bluetooth_Task 每 200ms 才轮询一次，同一命令的几段碎片
+ *    在这 200ms 内就都到了，放任务里累积会漏掉中间段。 */
+#define UART_FRAME_MAX   128            /* 命令最长约 50 字节，128 足够 */
+static char     Frame_Buf[UART_FRAME_MAX];
+static uint16_t Frame_Len;
+
 void Usart1_IDLE_Callback(void) {
+    uint16_t got, i;
+    char *s;
+    char *e;
+
     // UART 在接收端检测到至少 1 个字节时间没有新数据到来
-    if ((__HAL_UART_GET_FLAG(&huart1, UART_FLAG_IDLE) != RESET)) { // 判断空闲中断标志位是否为0
-        __HAL_UART_CLEAR_IDLEFLAG(&huart1); // 清除标志位
+    if ((__HAL_UART_GET_FLAG(&huart1, UART_FLAG_IDLE) == RESET)) return;
+    __HAL_UART_CLEAR_IDLEFLAG(&huart1); // 清除标志位
 
-        // 总计数减去未传输的数据个数，得到已经接收的数据个数
-        RxBuff_New = UART_BUFF_SIZE - __HAL_DMA_GET_COUNTER(&hdma_usart1_rx);
-        // 没有发送数据不进入判断，防止刚好接收满了时RxBuff_New为0，不处理数据
-        if (RxBuff_New != RxBuff_Old) {
-            RxEnd_Flag = 1; // 接受完成标志位置1
+    // 总计数减去未传输的数据个数，得到已经接收的数据个数
+    RxBuff_New = UART_BUFF_SIZE - __HAL_DMA_GET_COUNTER(&hdma_usart1_rx);
+    // 没有新数据不处理（也防止刚好接收满一圈时 RxBuff_New==RxBuff_Old）
+    if (RxBuff_New == RxBuff_Old) return;
 
-            // 复制数据
-            memset(Receive_Buf1, 0, UART_BUFF_SIZE);   // 保证接收缓冲区数据干净
-            if (RxBuff_New > RxBuff_Old) {
-                RxBuff_Size = RxBuff_New - RxBuff_Old;
-                memcpy(Receive_Buf1, &Rx_Buf1[RxBuff_Old], RxBuff_Size);
-            } else { // 数据覆盖回转
-                RxBuff_Size = UART_BUFF_SIZE - RxBuff_Old + RxBuff_New;
-                memcpy(Receive_Buf1, &Rx_Buf1[RxBuff_Old], UART_BUFF_SIZE - RxBuff_Old);
-                memcpy(&Receive_Buf1[UART_BUFF_SIZE - RxBuff_Old], Rx_Buf1, RxBuff_New);
-            }
-            RxBuff_Old = RxBuff_New;
-            Receive_Buf_Size = RxBuff_Size;
+    /* ---------- ① 把本次到达的这一段追加进成帧缓冲 ---------- */
+    got = (RxBuff_New > RxBuff_Old)
+              ? (uint16_t) (RxBuff_New - RxBuff_Old)                    // 未回绕
+              : (uint16_t) (UART_BUFF_SIZE - RxBuff_Old + RxBuff_New);  // DMA 回绕
+    RxBuff_Size = got;
+
+    for (i = 0; i < got; i++) {
+        char c = Rx_Buf1[RxBuff_Old];
+        RxBuff_Old = (uint16_t) ((RxBuff_Old + 1U) % UART_BUFF_SIZE);
+
+        if (Frame_Len >= UART_FRAME_MAX - 1U) {
+            Frame_Len = 0;              // 一直等不到 ']'：整帧丢弃重来，避免死等
+        }
+        Frame_Buf[Frame_Len++] = c;
+    }
+    Frame_Buf[Frame_Len] = '\0';
+
+    /* ---------- ② 丢掉第一个 '[' 之前的内容（链路噪声） ---------- */
+    s = strchr(Frame_Buf, '[');
+    if (s == NULL) {
+        Frame_Len = 0;                  // 连帧头都没有，整段丢弃
+        return;
+    }
+    if (s != Frame_Buf) {
+        Frame_Len = (uint16_t) (Frame_Len - (uint16_t) (s - Frame_Buf));
+        memmove(Frame_Buf, s, (size_t) Frame_Len + 1U);
+    }
+
+    /* ---------- ③ 找帧尾；没有说明帧还没收全，等下一段 ---------- */
+    e = strchr(Frame_Buf, ']');
+    if (e == NULL) return;
+
+    /* ---------- ④ 成帧：交给上层 ---------- */
+    {
+        uint16_t flen = (uint16_t) (e - Frame_Buf) + 1U;   // 含 ']'
+        uint16_t rest;
+
+        /* 上一帧还没被 Bluetooth_Task 取走时先不覆盖（否则会丢那一帧） */
+        if (RxEnd_Flag == 0) {
+            memcpy(Receive_Buf1, Frame_Buf, flen);
+            Receive_Buf1[flen] = '\0';
+            Receive_Buf_Size = flen;
+            RxEnd_Flag = 1;             // 现在表示：有一整帧待取
         }
 
+        /* 把 ']' 之后多出来的字节前移，留给下一帧（支持一段里含多帧） */
+        rest = (uint16_t) (Frame_Len - flen);
+        memmove(Frame_Buf, e + 1, rest);
+        Frame_Len = rest;
     }
 }
 /* USER CODE END 1 */

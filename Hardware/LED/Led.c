@@ -2,7 +2,7 @@
 #include "cmsis_os2.h"
 
 GPIO_PinStruct LED_PC13 = {GPIOC, GPIO_PIN_13};
-uint8_t LED_State=1;
+uint8_t LED_State = LED_STATE_ON;   /* 上电默认：0.5s 心跳，表示系统在跑 */
 
 /* 保护 LED_State 的互斥锁（LED_Task 读 / Bluetooth_Task 写）。
  * 属性与 Mutex_SensorData 保持一致：递归 + 优先级继承。
@@ -38,18 +38,11 @@ uint8_t LED_State_Get(void) {
 }
 
 void LED_Flip(GPIO_PinStruct GPIO, uint32_t Time) {
+    HAL_GPIO_TogglePin(GPIO.Port, GPIO.Pin);
     uint32_t tick = osKernelGetTickCount();
-
-    GPIO_PinState State = HAL_GPIO_ReadPin(GPIO.Port, GPIO.Pin);
-    if(State==GPIO_PIN_RESET){
-        HAL_GPIO_WritePin(GPIO.Port, GPIO.Pin,GPIO_PIN_SET);
-    }else{
-        HAL_GPIO_WritePin(GPIO.Port, GPIO.Pin,GPIO_PIN_RESET);
-    }
-
-    osDelayUntil(tick+Time);
+    osDelayUntil(tick + Time);
 }
 
 void LED_Off(GPIO_PinStruct GPIO) {
-    HAL_GPIO_WritePin(GPIO.Port, GPIO.Pin,GPIO_PIN_SET);
+    HAL_GPIO_WritePin(GPIO.Port, GPIO.Pin, GPIO_PIN_SET);
 }

@@ -74,6 +74,22 @@
 #define LCD_TXT_LOW     "下限"
 #define LCD_TXT_HIGH    "上限"
 /* ======================================================================= */
+
+/* ===== 风扇档位（TB6612 -> 直流马达，VM = 5V）============================
+ * ⚠️ 5V 供电时马达有启动死区（实测约 60% 以下只嗡不转），
+ *    所以最低档直接给 60，不要再用 30 / 50。
+ * 风扇要同时服务两个闭环：温度高了吹、湿度高了排气除湿。 */
+#define FAN_SPEED_OFF       0U     /* 停 */
+#define FAN_SPEED_LOW       75U    /* 温度高出上限 0~3 ℃ */
+#define FAN_SPEED_MID       85U    /* 温度高出上限 3~6 ℃  或  湿度超过上限 */
+#define FAN_SPEED_HIGH      100U   /* 温度高出上限 6 ℃ 以上 */
+/* ======================================================================= */
+
+/* 加热回差：温度顶到"下限 + TEMP_HYST"才关，跌破下限才开，中间保持原状态。
+ * 没有回差的话，温度贴着下限抖动时加热片会频繁通断（继电器/加热片寿命）——
+ * 湿度的 Humidifier_Task 用的也是同一套回差思路。 */
+#define TEMP_HYST           2U
+/* ======================================================================= */
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
@@ -84,8 +100,6 @@
 /* Private variables ---------------------------------------------------------*/
 /* USER CODE BEGIN Variables */
 
-
-
 /* 全局唯一的共享数据实例（零初始化，避免首次读取到随机值） */
 SensorData_t SensorData = {
         .Temperature = 0,
@@ -93,6 +107,23 @@ SensorData_t SensorData = {
         .Humidity = 0,
         .Humidity_Alarm = {50, 70}
 };
+
+
+
+/* 把无符号数按十进制追加到字符串末尾，返回新的写入位置。
+ * 刻意不用 sprintf：LCD 任务栈只有 1KB，sprintf 家族一次要吃近 1KB 栈，有溢出风险。 */
+static char *AppendU32(char *p, uint32_t v) {
+    char tmp[10];
+    uint8_t n = 0U;
+
+    do {
+        tmp[n++] = (char) ('0' + (uint8_t) (v % 10U));
+        v /= 10U;
+    } while (v != 0U);
+
+    while (n > 0U) *p++ = tmp[--n];
+    return p;
+}
 
 /* USER CODE END Variables */
 /* Definitions for Init_Task */
@@ -128,7 +159,7 @@ osThreadId_t Bluetooth_TaskHandle;
 const osThreadAttr_t Bluetooth_Task_attributes = {
   .name = "Bluetooth_Task",
   .stack_size = 512 * 4,
-  .priority = (osPriority_t) osPriorityHigh,
+  .priority = (osPriority_t) osPriorityNormal,
 };
 /* Definitions for Humidifier_Task */
 osThreadId_t Humidifier_TaskHandle;
@@ -273,13 +304,28 @@ void Init_StartTask(void *argument)
     /* LCD 没有显存、是直接写屏；字符/文字函数会同时填前景和背景像素，
      * 所以按固定坐标、固定宽度重绘即可，既不会闪烁也不会留残影。 */
     SPI_LCD_Init();
-    // 判断DHT11是否连接成功
-    while (1) { if (DHT11_Init() == 0) break; }
-    // 等待DHT11初始化完成
-    while (1) {
-        DHT11_Read_Data(&SensorData.Temperature, &SensorData.Humidity);
-        if (SensorData.Temperature != 0 && SensorData.Humidity != 0) break;
-    }
+
+    /* ---- DHT11 自检：用 RTOS tick 计时，给上限，不再无条件死等 ----------------
+     * 两个窗口：① 等传感器应答最多 1s；② 等第一次有效读数最多 5s。*/
+    // uint32_t dht_tick = osKernelGetTickCount();
+    // uint8_t dht_ok = 0;
+    DHT11_Init();
+
+    // while ((osKernelGetTickCount() - dht_tick) < 1000U) {   /* 最多 1s */
+    //     if (DHT11_Init() == 0) { dht_ok = 1; break; }
+    // }
+
+    // if (dht_ok) {
+    //     dht_tick = osKernelGetTickCount();
+    //     while ((osKernelGetTickCount() - dht_tick) < 5000U) {  /* 最多 5s */
+    //         DHT11_Read_Data(&SensorData.Temperature, &SensorData.Humidity);
+    //         if (SensorData.Temperature != 0 && SensorData.Humidity != 0) break;
+    //     }
+    //     if (SensorData.Temperature == 0 || SensorData.Humidity == 0) dht_ok = 0;
+    // }
+    //
+    // if (!dht_ok) LED_State_Set(LED_STATE_DHT11_FAIL);
+
     Motor_Init();
     Usart1_Init();
     HAL_TIM_Base_Start_IT(&htim1);
@@ -300,22 +346,27 @@ void LED_StartTask(void *argument)
   /* USER CODE BEGIN LED_StartTask */
     /* Infinite loop */
     for (;;) {
-        uint8_t led_on;
-
+        uint8_t LED_Status;
         osSemaphoreAcquire(Sem2_LED, osWaitForever);
 
-        /* 先加锁把状态取到局部变量，随即解锁。
-         * ⚠️ 绝不能把锁带进 LED_Flip —— 它内部的 osDelayUntil 会阻塞 500ms，
-         *    那样蓝牙任务发 LED_ON/LED_OFF 就得跟着等半秒。 */
-        led_on = LED_State_Get();
+        /* 先加锁把状态取到局部变量，随即解锁。*/
+        LED_Status = LED_State_Get();
 
         // HAL_GPIO_WritePin(GPIOC, GPIO_PIN_13, GPIO_PIN_RESET);
-        if (led_on == 1) {
-            LED_Flip(LED_PC13, 500);
-        } else {
-            LED_Off(LED_PC13);
-        }
+        switch (LED_Status) {
+            case LED_STATE_DHT11_FAIL:
+                LED_Flip(LED_PC13, 100);   /* 0.2s 快闪：DHT11 没起来 */
+                break;
 
+            case LED_STATE_ON:
+                LED_Flip(LED_PC13, 500);   /* 0.5s 心跳：正常运行 */
+                break;
+
+            case LED_STATE_OFF:
+            default:
+                LED_Off(LED_PC13);
+                break;
+        }
     }
   /* USER CODE END LED_StartTask */
 }
@@ -361,9 +412,7 @@ void LCD_StartTask(void *argument)
                 LCD_DrawLine_H(Lie(1), Hang(8) + 10, 216);   /* 底部 */
                 LCD_SetColor(LCD_WHITE);                     /* 恢复画笔色，后面的文字才是白的 */
 
-                /* ---- 温度：标签 Lie(2) / 数值 Lie(8) / 单位 Lie(11) 三列对齐
-                 *      （单位列与下面"上限"标签列同列 = Lie(11)，视觉更整齐；
-                 *        数值列取 Lie(8) 是为了湿度可能出现的 3 位数（100%RH）留出余量） ---- */
+                /* 数值列取 Lie(8) 是为了湿度可能出现的 3 位数（100%RH）留出余量） ---- */
                 LCD_DisplayText(Lie(2), Hang(3), LCD_TXT_TEMP);
                 LCD_DisplayNumber(Lie(8), Hang(3), data.Temperature, 2);
                 LCD_DisplayText(Lie(11), Hang(3), "℃");
@@ -381,7 +430,6 @@ void LCD_StartTask(void *argument)
                 LCD_DisplayText(Lie(11), Hang(7), LCD_TXT_HIGH);
                 LCD_DisplayNumber(Lie(16), Hang(7), data.Humidity_Alarm[1], 2);
             }
-
         }
     }
   /* USER CODE END LCD_StartTask */
@@ -431,7 +479,7 @@ void Bluetooth_StartTask(void *argument)
     for (;;) {
         uint16_t len;
         uint32_t Flag;
-        char text[50] = {0};
+        char text[64] = {0};
         SensorData_t data;       /* 本地副本：读写都走它，不直接碰共享区 */
         Bluetooth_CmdKind_t kind = BT_CMD_NONE;
         Bluetooth_Status_t status = BT_STATUS_BUSY; // 千万不能提到 for 外面，因为不是每次都能顺利获取互斥锁
@@ -492,6 +540,11 @@ void Humidifier_StartTask(void *argument)
   /* USER CODE BEGIN Humidifier_StartTask */
     /* Infinite loop */
     //根据湿度，进行加湿
+
+    /* Humid_Status 要放在 for 外面：靠"中间区间保持上次状态"做出天然回差，
+     * 避免湿度在阈值附近抖动时加湿器反复开关。 */
+    uint8_t Humid_Status = 0;
+
     for (;;) {
         SensorData_t data;
         osEventFlagsWait(EF_SensorData, EVENT_HUMI_UPDATE, osFlagsWaitAll, osWaitForever);
@@ -500,12 +553,13 @@ void Humidifier_StartTask(void *argument)
             data = SensorData;
             osMutexRelease(Mutex_SensorData);
 
-            if (data.Humidity < data.Humidity_Alarm[0]) {
-                Humidifier_Set(GPIO_PIN_SET);
-            } else {
-                Humidifier_Set(GPIO_PIN_RESET);
+            if (data.Humidity >= data.Humidity_Alarm[1]) {
+                Humid_Status = 0;   /* 顶到上限：无条件关。雾化有扩散滞后，这一条压住过冲 */
+            } else if (data.Humidity <= data.Humidity_Alarm[0]) {
+                Humid_Status = 1;   /* 跌破下限：开 */
             }
 
+            Humidifier_Set(Humid_Status ? GPIO_PIN_SET : GPIO_PIN_RESET);
         }
     }
   /* USER CODE END Humidifier_StartTask */
@@ -523,6 +577,10 @@ void Warm_StartTask(void *argument)
   /* USER CODE BEGIN Warm_StartTask */
     /* Infinite loop */
     //根据温度是否太低，进行升温
+
+    /* Warm_Status 放在 for 外面：靠"回差带内保持上次状态"避免加热片频繁通断 */
+    uint8_t Warm_Status = 0;
+
     for (;;) {
         SensorData_t data;
         osEventFlagsWait(EF_SensorData, EVENT_WARM_UPDATE, osFlagsWaitAll, osWaitForever);
@@ -531,14 +589,16 @@ void Warm_StartTask(void *argument)
             data = SensorData;
             osMutexRelease(Mutex_SensorData);
 
-            if (data.Temperature < data.Temperature_Alarm[0]) {
-                Warm_Set(GPIO_PIN_RESET);
-            } else {
-                Warm_Set(GPIO_PIN_SET);
+            if (data.Temperature >= data.Temperature_Alarm[0] + TEMP_HYST) {
+                Warm_Status = 0;    /* 升到"下限 + 回差"：关，防止贴着下限抖动 */
+            } else if (data.Temperature <= data.Temperature_Alarm[0]) {
+                Warm_Status = 1;    /* 跌破下限：开 */
             }
+            /* 下限 ~ 下限+TEMP_HYST 之间：保持原状态，这就是回差带 */
+
+            // 低电平有效：Warm_Status = 1 → 输出低电平（加热开）
+            Warm_Set(Warm_Status ? GPIO_PIN_RESET : GPIO_PIN_SET);
         }
-
-
     }
   /* USER CODE END Warm_StartTask */
 }
@@ -554,9 +614,11 @@ void Fan_StartTask(void *argument)
 {
   /* USER CODE BEGIN Fan_StartTask */
     /* Infinite loop */
-    // 根据温度，进行降温
+    /* 风扇要同时给两个闭环干活：温度高了吹风降温，湿度高了排气除湿。
+     * 两个需求各算一个目标转速，最后取较大的那个。 */
     for (;;) {
         SensorData_t data;
+        uint16_t spd_temp, spd_humi, spd;
 
         osEventFlagsWait(EF_SensorData, EVENT_FAN_UPDATE, osFlagsWaitAll, osWaitForever);
 
@@ -564,20 +626,26 @@ void Fan_StartTask(void *argument)
             data = SensorData;
             osMutexRelease(Mutex_SensorData);
 
+            /* ---- 湿度闭环：超过上限就排气除湿 ---- */
+            spd_humi = (data.Humidity > data.Humidity_Alarm[1])
+                       ? FAN_SPEED_MID : FAN_SPEED_OFF;
 
-
+            /* ---- 温度闭环：超出上限越多转越快 ---- */
             if (data.Temperature > data.Temperature_Alarm[1] &&
                 data.Temperature < data.Temperature_Alarm[1] + 3) {
-                Motor_SetSpeed(60);
+                spd_temp = FAN_SPEED_LOW;
             } else if (data.Temperature >= data.Temperature_Alarm[1] + 3 &&
                        data.Temperature < data.Temperature_Alarm[1] + 6) {
-                Motor_SetSpeed(80);
+                spd_temp = FAN_SPEED_MID;
             } else if (data.Temperature >= data.Temperature_Alarm[1] + 6) {
-                Motor_SetSpeed(100);
+                spd_temp = FAN_SPEED_HIGH;
             } else {
-
-                Motor_SetSpeed(0);
+                spd_temp = FAN_SPEED_OFF;
             }
+
+            /* 取两者中更大的转速 */
+            spd = (spd_temp > spd_humi) ? spd_temp : spd_humi;
+            Motor_SetSpeed(spd);
         }
     }
   /* USER CODE END Fan_StartTask */
@@ -585,7 +653,6 @@ void Fan_StartTask(void *argument)
 
 /* Private application code --------------------------------------------------*/
 /* USER CODE BEGIN Application */
-
 
 /* USER CODE END Application */
 

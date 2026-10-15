@@ -3,7 +3,7 @@
 #include "FreeRTOS.h"
 #include "task.h"
 
-GPIO_PinStruct DHT11={GPIOA, GPIO_PIN_4};
+GPIO_PinStruct DHT11={GPIOA, GPIO_PIN_11};
 
 /* 1 us 对应的 CPU 周期数（72 MHz → 72）。
  * 用于把"高电平持续了多少 us"换算成 DWT 周期阈值。 */
