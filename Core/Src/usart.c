@@ -169,14 +169,11 @@ void Usart1_Init(void) {
 /* ==================== 接收「成帧累积」====================
  * 手机下发的一条命令（如 [TEMP_MIN:..;TEMP_MAX:..;..]）经 HC-08 会被拆成多个
  * BLE 包先后到达，每到一个包就触发一次 IDLE 中断。
- * 若像以前那样"每次 IDLE 都把本段直接当成一帧"，拆开的碎片会被判成 [FRAME ERROR!]。
- *
- * 这里把每次到达的碎片追加到 Frame_Buf，直到凑出完整的 "[ ... ]" 才交给上层
+ * 把每次到达的碎片追加到 Frame_Buf，直到凑出完整的 "[ ... ]" 才交给上层
  * （写到 Receive_Buf1 + 置 RxEnd_Flag）。上层 Bluetooth.c 因此完全不用改：
  * 它那两句 `Receive_Buf1[0]=='['` / `末字节==']'` 现在恒成立。
  *
- * ⚠️ 必须放在中断里做：Bluetooth_Task 每 200ms 才轮询一次，同一命令的几段碎片
- *    在这 200ms 内就都到了，放任务里累积会漏掉中间段。 */
+ * 该函数必须放在中断里做：Bluetooth_Task 每 200ms 才轮询一次，放任务里累积会漏掉中间段数据。 */
 #define UART_FRAME_MAX   128            /* 命令最长约 50 字节，128 足够 */
 static char     Frame_Buf[UART_FRAME_MAX];
 static uint16_t Frame_Len;

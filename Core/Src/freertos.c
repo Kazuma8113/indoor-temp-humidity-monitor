@@ -112,18 +112,18 @@ SensorData_t SensorData = {
 
 /* 把无符号数按十进制追加到字符串末尾，返回新的写入位置。
  * 刻意不用 sprintf：LCD 任务栈只有 1KB，sprintf 家族一次要吃近 1KB 栈，有溢出风险。 */
-static char *AppendU32(char *p, uint32_t v) {
-    char tmp[10];
-    uint8_t n = 0U;
-
-    do {
-        tmp[n++] = (char) ('0' + (uint8_t) (v % 10U));
-        v /= 10U;
-    } while (v != 0U);
-
-    while (n > 0U) *p++ = tmp[--n];
-    return p;
-}
+// static char *AppendU32(char *p, uint32_t v) {
+//     char tmp[10];
+//     uint8_t n = 0U;
+//
+//     do {
+//         tmp[n++] = (char) ('0' + (uint8_t) (v % 10U));
+//         v /= 10U;
+//     } while (v != 0U);
+//
+//     while (n > 0U) *p++ = tmp[--n];
+//     return p;
+// }
 
 /* USER CODE END Variables */
 /* Definitions for Init_Task */
@@ -355,7 +355,7 @@ void LED_StartTask(void *argument)
         // HAL_GPIO_WritePin(GPIOC, GPIO_PIN_13, GPIO_PIN_RESET);
         switch (LED_Status) {
             case LED_STATE_DHT11_FAIL:
-                LED_Flip(LED_PC13, 100);   /* 0.2s 快闪：DHT11 没起来 */
+                LED_Flip(LED_PC13, 200);   /* 0.2s 快闪：DHT11 没起来 */
                 break;
 
             case LED_STATE_ON:
@@ -481,7 +481,6 @@ void Bluetooth_StartTask(void *argument)
         uint32_t Flag;
         char text[64] = {0};
         SensorData_t data;       /* 本地副本：读写都走它，不直接碰共享区 */
-        Bluetooth_CmdKind_t kind = BT_CMD_NONE;
         Bluetooth_Status_t status = BT_STATUS_BUSY; // 千万不能提到 for 外面，因为不是每次都能顺利获取互斥锁
 
         osSemaphoreAcquire(Sem2_Bluetooth, osWaitForever);
@@ -489,12 +488,12 @@ void Bluetooth_StartTask(void *argument)
         /* 锁外解析：读串口缓冲、握手判断、sscanf，结果全部落进本地 data。
          * 全程不碰 SensorData / LED_State，所以这里不需要持锁。 */
         memset(&data, 0, sizeof(data));
-        status = Bluetooth_ReceiveHandler(&data, &kind);
+        status = Bluetooth_ReceiveHandler(&data);
 
-        /* 锁内只做"写回"这一件事：4 个阈值字段整体写入，
-         * 读者（LCD / 加湿 / 加热 / 风扇）看不到"新下限配旧上限"的半更新组合。
-         * 抢不到锁不能回 [SET OK!]，降级成 BUSY 让手机下一轮重发。 */
-        if (status == BT_STATUS_SUCCESS && kind == BT_CMD_THRESHOLD) {
+        /* 锁内只做 4 个阈值字段整体写入
+         * 抢不到锁不能回 [SET OK!]，降级成 BUSY 让手机下一轮重发。
+         * status == BT_LED_STATUS_SUCCESS 时什么都不用做：LED_State 已在 Bluetooth_GetData 里加锁改完 */
+        if (status == BT_DHT_STATUS_SUCCESS) {
             if (osMutexAcquire(Mutex_SensorData, 0) == osOK) {
                 SensorData.Temperature_Alarm[0] = data.Temperature_Alarm[0];
                 SensorData.Temperature_Alarm[1] = data.Temperature_Alarm[1];
@@ -505,12 +504,11 @@ void Bluetooth_StartTask(void *argument)
                 status = BT_STATUS_BUSY;
             }
         }
-        /* kind == BT_CMD_LED 时什么都不用做：LED_State 已在 Bluetooth_GetData 里加锁改完 */
 
         /* 回话放在锁外发：SendHandler 发送忙时会 osDelay 等最长 100ms，
-         * 持锁阻塞会拖住 DHT11 写共享数据。
+         * 防止持锁阻塞会拖住 DHT11 写共享数据。
          * 该函数里已经包含了 Bluetooth_ReceiveHandler 发送函数*/
-        Bluetooth_ReplyByStatus(status);
+        Bluetooth_ReplyByStatus(status);  // 回复当前状态
 
         /* 上报 DHT11 温湿度信息：锁内只拷快照，sprintf 与发送都在锁外 */
         Flag = osEventFlagsWait(EF_SensorData, EVENT_BLUE_UPDATE, osFlagsWaitAll, 0);
@@ -519,8 +517,7 @@ void Bluetooth_StartTask(void *argument)
                 data = SensorData;      /* 加锁拷贝快照，立刻解锁 */
                 osMutexRelease(Mutex_SensorData);
 
-                len = sprintf(text, "温度:%u%% 湿度:%u%%\n",
-                              data.Temperature, data.Humidity);
+                len = sprintf(text, "温度:%u%% 湿度:%u%%\n",data.Temperature, data.Humidity);
                 Bluetooth_SendHandler((uint8_t *) text, len);
             }
         }

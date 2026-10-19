@@ -27,8 +27,7 @@ void Bluetooth_SendHandler(uint8_t *Buff, uint16_t len) {
     }
 }
 
-Bluetooth_Status_t Bluetooth_ReceiveHandler(SensorData_t *data, Bluetooth_CmdKind_t *kind) {
-    if (kind != NULL) *kind = BT_CMD_NONE;
+Bluetooth_Status_t Bluetooth_ReceiveHandler(SensorData_t *data) {
     if (!RxEnd_Flag) return BT_STATUS_BUSY;
     RxEnd_Flag = 0;
 
@@ -39,17 +38,17 @@ Bluetooth_Status_t Bluetooth_ReceiveHandler(SensorData_t *data, Bluetooth_CmdKin
 
     /* 握手包：到此为止，不能再往下当普通指令解析
      * （否则 sscanf 匹配不上，会跟着多发一条错误应答） */
-    if (Bluetooth_Link_Init()) return BT_STATUS_HANDSHAKE;
+    if (Bluetooth_Handshake()) return BT_STATUS_HANDSHAKE;
 
     /* 普通指令：解析结果写进调用方给的局部副本，状态由调用方决定怎么回话 */
-    return Bluetooth_GetData(data, kind);
+    return Bluetooth_GetData(data);
 }
 
 /* 一次性握手：手机发 [SUCCESSFUL CONNECTION!] → MCU 回一条即完成，没有第二次握手。
  * 本函数只做“这包是不是握手包”的判断，回包交给 Bluetooth_ReplyByStatus(BT_STATUS_HANDSHAKE)。
  * 刻意不加“只回一次”的静态标志：手机断线重连后那样就再也不会回包，握手会卡死（只能给板子断电）；
  * 而回包本身是幂等的，手机重发一次握手也不会造成什么后果。 */
-uint8_t Bluetooth_Link_Init(void) {
+uint8_t Bluetooth_Handshake(void) {
     return (strstr(Receive_Buf1, "SUCCESSFUL CONNECTION") != NULL) ? 1U : 0U;
 }
 
@@ -57,30 +56,26 @@ uint8_t Bluetooth_Link_Init(void) {
  * 解析结果写进 data —— 那是调用方传进来的**局部副本**，共享区 SensorData
  * 由调用方自己决定什么时候加锁写回（见 Bluetooth_StartTask 的三段式）。
  * uint16_t：必须用 %hu（只写 2 字节）unsigned short */
-Bluetooth_Status_t Bluetooth_GetData(SensorData_t *data, Bluetooth_CmdKind_t *kind) {
-    if (kind != NULL) *kind = BT_CMD_NONE;
-
+Bluetooth_Status_t Bluetooth_GetData(SensorData_t *data) {
     /* 阈值包：只落进局部副本，不在这里碰共享区 */
     if (sscanf(Receive_Buf1,
                "[TEMP_MIN:%hu;TEMP_MAX:%hu;HUM_MIN:%hu;HUM_MAX:%hu]",
                &data->Temperature_Alarm[0], &data->Temperature_Alarm[1],
                &data->Humidity_Alarm[0], &data->Humidity_Alarm[1]) == 4) {
-        if (kind != NULL) *kind = BT_CMD_THRESHOLD;
-        return BT_STATUS_SUCCESS;
+        return BT_DHT_STATUS_SUCCESS;
     }
 
     if (strstr(Receive_Buf1, "LED_ON") != NULL) {
         LED_State_Set(LED_STATE_ON);    /* 内部自带 Mutex_LedState，这里不用再加锁 */
-        if (kind != NULL) *kind = BT_CMD_LED;
-        return BT_STATUS_SUCCESS;
+        return BT_LED_STATUS_SUCCESS;
     }
 
     if (strstr(Receive_Buf1, "LED_OFF") != NULL) {
         LED_State_Set(LED_STATE_OFF);
-        if (kind != NULL) *kind = BT_CMD_LED;
-        return BT_STATUS_SUCCESS;
+        return BT_LED_STATUS_SUCCESS;
     }
 
+    // 数据解析失败
     return BT_STATUS_PARSE_ERROR;
 }
 
@@ -96,7 +91,8 @@ void Bluetooth_ReplyByStatus(Bluetooth_Status_t status) {
         case BT_STATUS_HANDSHAKE:
             len = sprintf(temp, "[SUCCESSFUL CONNECTION!]\n");
             break;
-        case BT_STATUS_SUCCESS:
+        case BT_DHT_STATUS_SUCCESS:
+        case BT_LED_STATUS_SUCCESS:
             len = sprintf(temp, "[SET OK!]\n");
             break;
         case BT_STATUS_FRAME_ERROR:
