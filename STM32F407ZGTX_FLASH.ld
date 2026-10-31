@@ -51,8 +51,8 @@ MEMORY
    * 另出一份 Slot B 的 bin 时把 ORIGIN 换成 0x8060000、VECT_TAB_OFFSET 换成 0x60000。
    * 与 Core/Src/system_stm32f4xx.c 的 VECT_TAB_OFFSET 必须成对修改，
    * 并保持与 Bootloader_F407/Hardware/Flash/Flash.h 的分区表一致。 */
-  FLASH    (rx)    : ORIGIN = 0x8020000,   LENGTH = 256K
-/*  FLASH    (rx)    : ORIGIN = 0x8000000,   LENGTH = 256K*/
+/*  FLASH    (rx)    : ORIGIN = 0x8020000,   LENGTH = 256K*/
+  FLASH    (rx)    : ORIGIN = 0x8000000,   LENGTH = 256K
 }
 
 /* Sections */

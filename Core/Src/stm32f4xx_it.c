@@ -23,6 +23,7 @@
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
 #include "usart.h"
+#include "ble_data_parse.h"   /* Bluetooth_OnIdle()：串口空闲取字节的入口在 Service 层 */
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -198,7 +199,9 @@ void TIM1_UP_TIM10_IRQHandler(void)
 void USART1_IRQHandler(void)
 {
   /* USER CODE BEGIN USART1_IRQn 0 */
-  Usart1_IDLE_Callback();
+  /* 空闲取字节：先把已到的字节交给成帧层，再让 HAL 处理 TC / 错误标志。
+   * 顺序不能反 —— HAL 处理 ORE 会重启 DMA 并把读写指针归零，先跑就把数据丢了。 */
+  Bluetooth_OnIdle();
   /* USER CODE END USART1_IRQn 0 */
   HAL_UART_IRQHandler(&huart1);
   /* USER CODE BEGIN USART1_IRQn 1 */

@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""给 LCD 24x24 汉字字库 (Hardware/LCD/lcd_fonts.c 的 Chinese_2424 表) 追加汉字。
+"""给 LCD 24x24 汉字字库 (Device/Src/lcd_fonts.c 的 Chinese_2424 表) 追加汉字。
 
 用法:
     python gen_lcd_font.py                  # 追加脚本内置的常用字列表
@@ -20,7 +20,8 @@ import sys
 from PIL import Image, ImageDraw, ImageFont
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-FONTS_C = os.path.normpath(os.path.join(HERE, "..", "Hardware", "LCD", "lcd_fonts.c"))
+FONTS_C = os.path.normpath(os.path.join(
+    HERE, "..", "Device", "Src", "lcd_fonts.c"))
 
 W = H = 24
 SZ = 72                                  # 24*24/8

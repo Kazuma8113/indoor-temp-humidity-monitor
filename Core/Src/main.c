@@ -20,6 +20,7 @@
 #include "main.h"
 #include "cmsis_os.h"
 #include "dma.h"
+#include "iwdg.h"
 #include "spi.h"
 #include "tim.h"
 #include "usart.h"
@@ -27,7 +28,8 @@
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
-
+#include "app_tick.h"    /* App_Heartbeat()：任务节拍分频在 App 层 */
+#include "bsp_usart1.h"  /* 串口收发完成/出错回调转调（Bsp 层） */
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -48,10 +50,8 @@
 /* Private variables ---------------------------------------------------------*/
 
 /* USER CODE BEGIN PV */
-extern osSemaphoreId_t Sem2_LED;
-extern osSemaphoreId_t Sem2_LCD;
-extern osSemaphoreId_t Sem2_DHT11;
-extern osSemaphoreId_t Sem2_Bluetooth;
+/* Sem2_LED / Sem2_LCD / Sem2_DHT11 / Sem2_Bluetooth 的声明已随实现移到
+ * App/Inc/app_data.h，在 USER CODE BEGIN Includes 里统一引入。 */
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -100,6 +100,7 @@ int main(void)
   MX_TIM2_Init();
   MX_USART1_UART_Init();
   MX_SPI3_Init();
+  MX_IWDG_Init();
   /* USER CODE BEGIN 2 */
 
   /* USER CODE END 2 */
@@ -140,8 +141,9 @@ void SystemClock_Config(void)
   /** Initializes the RCC Oscillators according to the specified parameters
   * in the RCC_OscInitTypeDef structure.
   */
-  RCC_OscInitStruct.OscillatorType = RCC_OSCILLATORTYPE_HSE;
+  RCC_OscInitStruct.OscillatorType = RCC_OSCILLATORTYPE_LSI|RCC_OSCILLATORTYPE_HSE;
   RCC_OscInitStruct.HSEState = RCC_HSE_ON;
+  RCC_OscInitStruct.LSIState = RCC_LSI_ON;
   RCC_OscInitStruct.PLL.PLLState = RCC_PLL_ON;
   RCC_OscInitStruct.PLL.PLLSource = RCC_PLLSOURCE_HSE;
   RCC_OscInitStruct.PLL.PLLM = 4;
@@ -173,25 +175,15 @@ void SystemClock_Config(void)
 void HAL_UART_TxCpltCallback(UART_HandleTypeDef *huart) {
     // 串口DMA发送完毕时调用
     if (huart->Instance == USART1) {
-        TxEnd_Flag = 1;
+        Bsp_Usart1_Tx_IDLE();
     }
 }
 
 /* 串口DMA 缓存区溢出中断回调函数 */
 void HAL_UART_ErrorCallback(UART_HandleTypeDef *huart) {
     if (huart->Instance == USART1) {
-        /* 清除所有可能的错误标志 */
-        // 当DMA没有及时搬运数据寄存器RDR中数据时
-        __HAL_UART_CLEAR_OREFLAG(huart);    // 清除接收数据寄存器RDR过载错误标志位
-
-        __HAL_UART_CLEAR_PEFLAG(huart);     // 清除奇偶校验错误标志位
-        __HAL_UART_CLEAR_FEFLAG(huart);     // 清除停止位错误标志位
-        __HAL_UART_CLEAR_NEFLAG(huart);     // 清除噪声错误标志位
-
-        TxEnd_Flag = 1;                     // 重启串口发送完毕标志位
-
-        // 重启DMA接收
-        HAL_UART_Receive_DMA(&huart1, (uint8_t *) Rx_Buf1, UART_BUFF_SIZE);
+        /* 清错误标志、放开"发送忙"、重启 DMA 接收，都在 Bsp 里做 */
+        Bsp_Usart1_OnError();
     }
 }
 /* USER CODE END 4 */
@@ -208,32 +200,9 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 {
   /* USER CODE BEGIN Callback 0 */
     if (htim->Instance == TIM1) {
-        static uint8_t LED_Count;
-        static uint8_t LCD_Count;
-        static uint16_t DHT11_Count;
-        static uint8_t Bluetooth_Count;
-
-        /* 用二值信号量控制CPU资源占用，避免高优先级任务一直占用CPU
-         * 计数器必须"无条件"清零：防止信号量还是满的（任务没来得及取走）时，计数值溢出*/
-        if (++LED_Count >= 100) {
-            LED_Count = 0;
-            (void) osSemaphoreRelease(Sem2_LED);
-        }
-
-        if (++LCD_Count >= 100) {
-            LCD_Count = 0;
-            (void) osSemaphoreRelease(Sem2_LCD);
-        }
-
-        if (++DHT11_Count >= 1000) {
-            DHT11_Count = 0;
-            (void) osSemaphoreRelease(Sem2_DHT11);
-        }
-
-        if (++Bluetooth_Count >= 200) {
-            Bluetooth_Count = 0;
-            (void) osSemaphoreRelease(Sem2_Bluetooth);
-        }
+        /* 1ms 节拍的分频（谁多久跑一次、唤醒哪个任务）在 App/Src/app_tick.c。
+         * 本文件只负责"TIM1 到点了"这件事。 */
+        App_Heartbeat();
     }
   /* USER CODE END Callback 0 */
   if (htim->Instance == TIM6)

@@ -1,3 +1,6 @@
 CompileFlags:
+  # 告诉 clangd 去哪里找编译数据库（默认只会在 <dir>/build/ 里找，找不到本工程的目录）
+  CompilationDatabase: cmake-build-debug-st-mingw-1331
   Remove:
+    # ARM GCC 专有、clang 不认识，留着会让 clangd 报无法解析
     - -mthumb-interwork

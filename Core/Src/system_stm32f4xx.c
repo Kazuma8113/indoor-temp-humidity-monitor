@@ -109,8 +109,8 @@
  * ⚠️ 必须与 STM32F407ZGTX_FLASH.ld 里的 FLASH ORIGIN 成对修改 ——
  *    只改一边，SystemInit() 会把 SCB->VTOR 指到错误的地方，跳过去必跑飞。
  *    另出一份 Slot B 的 bin 时这里改成 0x00060000U。 */
-#define VECT_TAB_OFFSET         0x00020000U     /*!< Vector Table offset field. This value must be a multiple of 0x200. */
-// #define VECT_TAB_OFFSET         0x00000000U
+// #define VECT_TAB_OFFSET         0x00020000U     /*!< Vector Table offset field. This value must be a multiple of 0x200. */
+#define VECT_TAB_OFFSET         0x00000000U
 #endif /* VECT_TAB_OFFSET */
 #endif /* USER_VECT_TAB_ADDRESS */
 /******************************************************************************/

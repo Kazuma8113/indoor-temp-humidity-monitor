@@ -36,12 +36,6 @@ extern "C" {
 
 /* Exported types ------------------------------------------------------------*/
 /* USER CODE BEGIN ET */
-/* 通用“端口 + 引脚”组合结构体：让硬件驱动可以用一个变量同时携带 Port 和 Pin，
- * 避免在每处调用都写两遍参数（源自 F103 工程，F4 移植保持不变）。 */
-typedef struct {
-    GPIO_TypeDef *Port;
-    uint16_t Pin;
-} GPIO_PinStruct;
 
 /* USER CODE END ET */
 
