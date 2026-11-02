@@ -30,7 +30,8 @@ void Bsp_Motor_SetDuty(uint16_t duty_percent) {
 
     if (duty_percent > 100U) duty_percent = 100U;
 
-    /* ARR 由 CubeMX 的 tim.c 决定（1kHz @ 当前时钟树），这里现取现算，
+    /* ARR 由 CubeMX 的 tim.c 决定
+     * （20kHz @ 当前时钟树：APB1 定时器时钟 84MHz / 42 / 100），这里现取现算，
      * 以后改 ARR 不用同步修改本文件里的魔数。 */
     arr = __HAL_TIM_GET_AUTORELOAD(&htim2);
     ccr = ((uint32_t) duty_percent * arr) / 100U;

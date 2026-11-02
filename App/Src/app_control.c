@@ -2,9 +2,9 @@
 #include "app_data.h"
 #include "app_diag.h"      /* App_Diag_Kick()：任务打点 */
 
-#include "Humidifier.h"
-#include "Warm.h"
-#include "TB6612.h"
+#include "humidifier.h"
+#include "warm.h"
+#include "motor.h"
 
 #include "cmsis_os.h"
 
@@ -16,7 +16,7 @@
 #define FAN_SPEED_HIGH      100U   /* 温度高出上限 6 ℃ 以上 */
 
 /* 加热回差：温度顶到"下限 + TEMP_HYST"才关，跌破下限才开，中间保持原状态。 */
-#define TEMP_HYST           2U
+#define TEMP_HYST           2
 
 /* ==================== 湿度闭环 ====================
  * Humid_Status 必须放在循环外：靠"中间区间保持上次状态"做出天然回差，避免湿度在阈值附近抖动时加湿器反复开关。*/

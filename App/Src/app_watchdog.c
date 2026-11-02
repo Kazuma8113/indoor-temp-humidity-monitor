@@ -1,6 +1,6 @@
 #include "app_watchdog.h"
 
-#include "bsp_iwdg.h"      /* 本层第 2 处 Bsp 依赖（另见 app_tasks.c 的 bsp_tim.h） */
+#include "bsp_iwdg.h"      /* App 层 Bsp 依赖第 3 处（另两处在 app_tasks.c 的 bsp_tim.h / bsp_iwdg.h） */
 #include "app_diag.h"      /* App_Diag_Scan()：超期判定；APP_DIAG_REASON_*：复位原因 */
 #include "lcd_spi_154.h"   /* 故障停机界面：SPI_LCD_Init / LCD_DisplayString，顺带引入 HAL_Delay */
 #include "cmsis_os.h"      /* osDelay */
@@ -12,19 +12,14 @@
  * 取 100ms 喂一次，对最坏情况仍有 3.5 倍余量。 */
 #define WATCHDOG_FEED_MS   100U
 
-/* ==================== 喂狗任务主体 ====================
- * 正常时每 100ms 喂一次，同时顺带做一次超期判定。
- * 内部死循环，永不返回。 */
+/* 喂狗任务主体，正常时每 100ms 喂一次，同时顺带做一次超期判定。*/
 void App_Watchdog_Run(void) {
     for (;;) {
         App_Diag_Kick(APP_DIAG_TASK_WATCHDOG);
 
         if (App_Diag_Scan() == APP_DIAG_RET_FATAL) {
-            /* 确认有任务卡死：停止喂狗，让 IWDG 用独立 LSI 时钟复位。
-             * 这里不画屏 —— 距复位只剩 348ms，而且卡住的可能正是显示任务；
-             * 故障信息统一交给下次启动的 FaultScreen()，在调度器起来之前显示。 */
-            for (;;) {
-            }
+            /* 确认有任务卡死：停止喂狗，超时自动复位*/
+            while(1);
         }
 
         Bsp_Iwdg_Feed();
@@ -32,9 +27,7 @@ void App_Watchdog_Run(void) {
     }
 }
 
-/* ==================== 取本次复位原因 ====================
- * 返回值对应 app_diag.h 的 APP_DIAG_REASON_*。
- * 所以只能在启动阶段调用一次；再调会拿到 APP_DIAG_REASON_NONE。 */
+/* 判断本次复位原因 */
 uint32_t App_Watchdog_ResetCause(void) {
     uint8_t is_wdg = Bsp_Iwdg_IsResetFromWatchdog();
     Bsp_Iwdg_ClearResetFlags();
@@ -42,9 +35,8 @@ uint32_t App_Watchdog_ResetCause(void) {
     return (is_wdg != 0U) ? APP_DIAG_REASON_IWDG : APP_DIAG_REASON_NONE;
 }
 
-/* ==================== 故障停机界面 ====================
- * 上一轮被看门狗咬、且记下了元凶时，停在画面上报错，等人工按复位键。
- * 必须在调度器启动之前调用（main 里、osKernelInitialize() 之前）*/
+/* ==================== 故障停机界面 ==================== */
+/* 上电时，判断是否为狗咬复位，若是则进入故障停机界面。*/
 void App_Watchdog_FaultScreen(uint32_t cause) {
 #if (APP_DIAG_SHOW_FAULT == 0U)
     /* 开关关掉：不停机报错，直接放行让系统正常启动。
@@ -52,7 +44,7 @@ void App_Watchdog_FaultScreen(uint32_t cause) {
     (void) cause;
     return;
 #else
-    /* 普通复位、或者狗咬时监控任务自己都没跑起来（last_blame 为无），一律放行 */
+    /* 普通复位、非任务卡死复位不进入故障停机界面 */
     if (cause != APP_DIAG_REASON_IWDG ||
         g_diag.last_blame == APP_DIAG_NO_BLAME) {
         return;

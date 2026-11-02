@@ -1,9 +1,9 @@
-#include "DHT11.h"
+#include "dht11.h"
 
 #include "bsp_dht11.h"    /* DHT11 引脚：读写 + 方向切换（BSP 层直调 HAL） */
-#include "DWT.h"
+#include "bsp_dwt.h"
 
-/* 1 us 对应的 CPU 周期数（72 MHz → 72）。
+/* 1 us 对应的 CPU 周期数（168 MHz → 168）。
  * 用于把"高电平持续了多少 us"换算成 DWT 周期阈值。 */
 #define DHT11_CYCLES_PER_US   (SystemCoreClock / 1000000U)
 
@@ -143,7 +143,7 @@ uint8_t DHT11_Read_Data(uint8_t *temp, uint8_t *humi) {
  * @retval uint8_t: 1-不存在，0-存在
  */
 uint8_t DHT11_Init(void) {
-    DWT_Init();
+    Dwt_Init();
     Bsp_Dht11_Init();           /* 推挽输出 + 空闲态拉高 */
 
     DHT11_Rst();                // 复位

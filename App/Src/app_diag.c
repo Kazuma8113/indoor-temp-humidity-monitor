@@ -72,10 +72,7 @@ void App_Diag_Init(uint32_t reset_cause) {
     } else {
         g_diag.boot_cnt++;
 
-        if (reset_cause == APP_DIAG_REASON_IWDG) {
-            /* 狗咬的：上一轮写进 last_blame / last_age 的故障信息必须原样留着，
-             * 后续步骤要拿它画到 LCD 上。这里一个字都不能清。 */
-        } else {
+        if (reset_cause == APP_DIAG_REASON_NONE){
             /* 普通复位：不是故障，清掉上一轮的残留，避免下次误报。 */
             g_diag.last_blame = APP_DIAG_NO_BLAME;
             g_diag.last_age   = 0U;

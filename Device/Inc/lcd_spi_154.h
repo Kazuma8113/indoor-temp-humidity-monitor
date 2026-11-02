@@ -1,5 +1,5 @@
-#ifndef __spi_lcd
-#define __spi_lcd
+#ifndef DEVICE_LCD_SPI_154_H
+#define DEVICE_LCD_SPI_154_H
 
 #include "main.h"
 #include <stdio.h>        /* 驱动内部用 sprintf 格式化数字（原来是从 usart.h 蹭来的） */
@@ -124,7 +124,7 @@ uint16_t Hang(uint16_t y);
 #define LCD_Backlight_OFF    (Bsp_Lcd_Backlight(0))   // 低电平，关闭背光
 
 
-#endif //__spi_lcd
+#endif /* DEVICE_LCD_SPI_154_H */
 
 
 

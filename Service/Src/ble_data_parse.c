@@ -196,10 +196,10 @@ static uint8_t Ble_IsHandshake(const char *frame) {
 static Ble_Status_t Ble_Parse(const char *frame,
                               Ble_Threshold_t *threshold,
                               Ble_LedCmd_t *led_cmd) {
-    /* 阈值包。%hd 对应 int16_t：手机允许零下温度，用 %hu 会把 -40 读成 65496。
-     * 范围和上下限顺序由 APP 的 ThresholdActivity 负责，这里不再重复校验。 */
+    /* 阈值包。%hhd 对应 int8_t：一个字节够放阈值，也允许将来出现零下温度。
+     * 范围和上下限顺序由 APP 负责，这里不再重复校验。 */
     if (sscanf(frame,
-               "[TEMP_MIN:%hd;TEMP_MAX:%hd;HUM_MIN:%hd;HUM_MAX:%hd]",
+               "[TEMP_MIN:%hhd;TEMP_MAX:%hhd;HUM_MIN:%hhd;HUM_MAX:%hhd]",
                &threshold->Temp_Min, &threshold->Temp_Max,
                &threshold->Hum_Min, &threshold->Hum_Max) == 4) {
         return BT_DHT_STATUS_SUCCESS;

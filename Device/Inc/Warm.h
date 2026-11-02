@@ -1,5 +1,5 @@
-#ifndef __WARM_H__
-#define __WARM_H__
+#ifndef DEVICE_WARM_H
+#define DEVICE_WARM_H
 
 #include <stdint.h>     /* uint8_t */
 
@@ -7,11 +7,9 @@
  * 器件驱动：加热片（控制脚低电平有效）
  * ========================================================================== */
 
-/* 初始化（上电关闭） */
-void Warm_Init(void);
 
-/* on = 1 开加热，on = 0 关 */
+void Warm_Init(void);
 void Warm_Set(uint8_t on);
 
-#endif //PROJECT_WARM_H
+#endif /* DEVICE_WARM_H */
 

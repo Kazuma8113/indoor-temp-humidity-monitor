@@ -1,5 +1,5 @@
-#ifndef __FONTS_H
-#define __FONTS_H
+#ifndef DEVICE_LCD_FONTS_H
+#define DEVICE_LCD_FONTS_H
 
 #include <stdint.h>
 
@@ -30,5 +30,5 @@ extern pFONT ASCII_Font20; 	// 2010 字体
 extern pFONT ASCII_Font16; 	// 1608 字体
 extern pFONT ASCII_Font12; 	// 1206 字体
 
-#endif 
+#endif /* DEVICE_LCD_FONTS_H */
  

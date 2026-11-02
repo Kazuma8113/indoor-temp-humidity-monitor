@@ -1,5 +1,5 @@
-#ifndef BLE_DATA_PARSE_H
-#define BLE_DATA_PARSE_H
+#ifndef SERVICE_BLE_DATA_PARSE_H
+#define SERVICE_BLE_DATA_PARSE_H
 
 #include <stdint.h>
 
@@ -10,17 +10,15 @@
  * ========================================================================== */
 
 /* 蓝牙阈值帧解析出来的字段。
- * 这是协议层的数据（对应 "[TEMP_MIN:%hd;TEMP_MAX:%hd;HUM_MIN:%hd;HUM_MAX:%hd]"），
- * 必须是有符号的：Android 端 ThresholdStore 的温度范围是 -40~85*/
+ * APP 端（ThresholdActivity）把范围限死在温度 16~30、湿度 40~70。 */
 typedef struct {
-    int16_t Temp_Min;
-    int16_t Temp_Max;
-    int16_t Hum_Min;
-    int16_t Hum_Max;
+    int8_t Temp_Min;
+    int8_t Temp_Max;
+    int8_t Hum_Min;
+    int8_t Hum_Max;
 } Ble_Threshold_t;
 
-/* 手机下发的 LED 指令。
- * 解析与执行分开：Service 只"读懂意图"，改 LED_State 是 App 的事。 */
+/* 手机下发的 LED 指令 */
 typedef enum {
     BT_LED_CMD_NONE = 0,     /* 本帧没有 LED 指令 */
     BT_LED_CMD_ON,           /* 手机要求点亮 */
@@ -65,5 +63,5 @@ Ble_Status_t Bluetooth_ReceiveHandler(Ble_Threshold_t *th, Ble_LedCmd_t *led_cmd
  * 同样只能在任务上下文调用（最终会走 Bluetooth_SendHandler）。 */
 void Bluetooth_ReplyByStatus(Ble_Status_t status);
 
-#endif /* BLE_DATA_PARSE_H */
+#endif /* SERVICE_BLE_DATA_PARSE_H */
 

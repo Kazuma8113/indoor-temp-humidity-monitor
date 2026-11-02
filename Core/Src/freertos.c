@@ -198,9 +198,6 @@ void MX_FREERTOS_Init(void) {
   Watchdog_TaskHandle = osThreadNew(Watchdog_StartTask, NULL, &Watchdog_Task_attributes);
 
   /* USER CODE BEGIN RTOS_THREADS */
-    /* 看门狗任务已在 .ioc 里配好（Watchdog_Task，优先级 1 = osPriorityIdle），
-     * 上面的属性表和创建语句都由 CubeMX 生成，重新生成代码时不会重复。
-     * 本段只保留创建失败的兜底：堆不足时不能静默继续，否则 IWDG 512ms 后一直复位。 */
     if (Watchdog_TaskHandle == NULL) {
       Error_Handler();
     }

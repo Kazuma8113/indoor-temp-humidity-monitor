@@ -21,7 +21,7 @@
 #     Device/Src/Led.c
 #
 # 头文件名在工程内唯一，所以只需把各层 Inc/ 加进 include path，
-# 源码里照旧写 #include "Led.h" 即可，不用写成 "Device/Inc/Led.h"。
+# 源码里照旧写 #include "led.h" 即可，不用写成 "Device/Inc/led.h"。
 #
 # 本文件被 CMakeLists.txt 与 CMakeLists_template.txt 同时 include，
 # 所以 CubeMX 重新生成 CMakeLists.txt 后分层规则依然生效。

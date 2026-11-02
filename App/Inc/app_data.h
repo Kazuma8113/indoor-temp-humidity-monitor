@@ -7,14 +7,13 @@
 /* ==================== 业务数据模型 ==================== */
 
 typedef struct {
-    uint8_t  Temperature;           /* 摄氏度，DHT11 只有整数精度 */
-    int16_t  Temperature_Alarm[4];  /* [0]=下限 [1]=上限（[2][3] 预留）。有符号：APP 允许 -40~85 */
-    uint8_t  Humidity;              /* %RH */
-    int16_t  Humidity_Alarm[4];     /* [0]=下限 [1]=上限（[2][3] 预留） */
+    int8_t   Temperature;           /* 摄氏度，DHT11 只有整数精度 */
+    int8_t   Temperature_Alarm[4];  /* [0]=下限 [1]=上限（[2][3] 预留） */
+    int8_t   Humidity;              /* %RH */
+    int8_t   Humidity_Alarm[4];     /* [0]=下限 [1]=上限（[2][3] 预留） */
 } SensorData_t;
 
-/* ==================== 事件标志位 ====================
- * 每位只对应一个消费者，避免多个任务等待同一位时被抢先清零。 */
+/* ==================== 事件标志位 ==================== */
 #define EVENT_LCD_UPDATE    (1U << 0)   /* LCD 刷新 */
 #define EVENT_BLUE_UPDATE   (1U << 1)   /* 蓝牙上报 */
 #define EVENT_HUMI_UPDATE   (1U << 2)   /* 加湿控制 */

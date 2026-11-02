@@ -1,6 +1,6 @@
-#include "DWT.h"
+#include "bsp_dwt.h"
 
-void DWT_Init(void) {
+void Dwt_Init(void) {
     CoreDebug->DEMCR |= CoreDebug_DEMCR_TRCENA_Msk;
     DWT->CYCCNT = 0;
     DWT->CTRL |= DWT_CTRL_CYCCNTENA_Msk;

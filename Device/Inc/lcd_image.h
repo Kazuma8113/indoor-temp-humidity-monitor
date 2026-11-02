@@ -1,5 +1,5 @@
-#ifndef __LCD_IMAGE_H
-#define __LCD_IMAGE_H
+#ifndef DEVICE_LCD_IMAGE_H
+#define DEVICE_LCD_IMAGE_H
 
 #include <stdint.h>
 
@@ -10,7 +10,7 @@ extern const uint8_t Image_Message_83x83[];
 extern const uint8_t Image_Toys_83x83[];
 extern const uint8_t Image_Video_83x83[];
 
-#endif  // __LCD_IMAGE_H
+#endif /* DEVICE_LCD_IMAGE_H */
 
 
 

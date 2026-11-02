@@ -1,5 +1,5 @@
-#ifndef __DHT11_H
-#define __DHT11_H
+#ifndef DEVICE_DHT11_H
+#define DEVICE_DHT11_H
 
 #include <stdint.h>
 
@@ -22,4 +22,4 @@ uint8_t DHT11_Read_Bit(void);                          /* 读一位 */
 uint8_t DHT11_Check(void);                             /* 检测应答：0=存在 */
 void    DHT11_Rst(void);                               /* 发起始信号 */
 
-#endif
+#endif /* DEVICE_DHT11_H */

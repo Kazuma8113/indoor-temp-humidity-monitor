@@ -107,9 +107,6 @@ int main(void)
     /* 复位后第一件事：取复位原因，读回上一轮的故障记录。*/
     uint32_t reset_cause = App_Watchdog_ResetCause();
     App_Diag_Init(reset_cause);
-
-    /* 上一轮是看门狗咬的、且记下了元凶：停在故障界面等人工复位，不再进系统。
-     * 命中条件时这个函数不返回，后面的 osKernelInitialize() 不会执行。 */
     App_Watchdog_FaultScreen(reset_cause);
   /* USER CODE END 2 */
 

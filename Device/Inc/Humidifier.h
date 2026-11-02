@@ -1,5 +1,5 @@
-#ifndef __HUMIDIFIER_H__
-#define __HUMIDIFIER_H__
+#ifndef DEVICE_HUMIDIFIER_H
+#define DEVICE_HUMIDIFIER_H
 
 #include <stdint.h>     /* uint8_t */
 
@@ -15,4 +15,4 @@ void Humidifier_Init(void);
 /* on = 1 开加湿，on = 0 关 */
 void Humidifier_Set(uint8_t on);
 
-#endif //__HUMIDIFIER_H__
+#endif /* DEVICE_HUMIDIFIER_H */

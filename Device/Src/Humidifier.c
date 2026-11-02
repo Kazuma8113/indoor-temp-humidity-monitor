@@ -1,4 +1,4 @@
-#include "Humidifier.h"
+#include "humidifier.h"
 #include "bsp_humid.h"    /* Bsp_Humid_On / Off（HAL 直调，极性在 Bsp 里） */
 
 void Humidifier_Init(void) {

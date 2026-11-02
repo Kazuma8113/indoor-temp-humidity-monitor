@@ -1,6 +1,6 @@
 #include "app_led.h"
 
-#include "Led.h"        /* LED_Init()：把灯先置为熄灭 */
+#include "led.h"        /* LED_Init()：把灯先置为熄灭 */
 #include "cmsis_os.h"
 
 /* 上电默认：0.5s 心跳，表示系统在跑 */

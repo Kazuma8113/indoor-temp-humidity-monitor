@@ -1,18 +1,18 @@
 #include "app_tasks.h"
 #include "app_data.h"
 
-#include "Led.h"          /* LED_Flip / LED_Off（器件动作，引脚已内置） */
+#include "led.h"          /* LED_Flip / LED_Off（器件动作，引脚已内置） */
 #include "app_led.h"      /* LED 业务状态机（心跳 / 快闪 / 常亮） */
-#include "DHT11.h"
-#include "TB6612.h"
-#include "Humidifier.h"   /* Humidifier_Init()：上电先关 */
-#include "Warm.h"         /* Warm_Init()：上电先关 */
+#include "dht11.h"
+#include "motor.h"
+#include "humidifier.h"   /* Humidifier_Init()：上电先关 */
+#include "warm.h"         /* Warm_Init()：上电先关 */
 #include "lcd_spi_154.h"
 #include "ble_data_parse.h"
 #include "app_tick.h"     /* Sem2_*（任务节拍信号量，本层） */
 #include "app_diag.h"     /* App_Diag_Kick()：任务打点 */
 #include "bsp_tim.h"      /* Bsp_Tim_Start() */
-#include "bsp_iwdg.h"     /* Bsp_Iwdg_Feed()：初始化期间顶住看门狗（共 2 处 Bsp 依赖） */
+#include "bsp_iwdg.h"     /* Bsp_Iwdg_Feed()：初始化期间顶住看门狗 */
 
 #include "cmsis_os.h"
 #include <stdio.h>
@@ -140,7 +140,7 @@ void App_Bluetooth_Run(void) {
                 data = SensorData;
                 osMutexRelease(Mutex_SensorData);
 
-                len = sprintf(text, "温度:%u%% 湿度:%u%%\n", data.Temperature, data.Humidity);
+                len = sprintf(text, "温度:%d%% 湿度:%d%%\n", data.Temperature, data.Humidity);
                 /* 没发出去就把事件位重新置起来，让下一拍 200ms 补报一次 */
                 if (Bluetooth_SendHandler((const uint8_t *) text, len) == 0U) {
                     osEventFlagsSet(EF_SensorData, EVENT_BLUE_UPDATE);
