@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
-"""任务栈水位分析 —— 读取 tools/dump_task_stacks.cfg 生成的栈镜像并算出峰值占用。
+"""任务栈水位分析 —— 读取 Tools/dump_task_stacks.cfg 生成的栈镜像并算出峰值占用。
 
 用法：
     1) cd Graduation_F407
-       openocd -f st_link.cfg -f tools/dump_task_stacks.cfg
-    2) python tools/check_stack_watermark.py
+       openocd -f st_link.cfg -f Tools/dump_task_stacks.cfg
+    2) python Tools/check_stack_watermark.py
 
 判定：
     configCHECK_FOR_STACK_OVERFLOW = 2 时，FreeRTOS 创建任务会把整块栈填 0xA5，
@@ -18,7 +18,7 @@ import struct
 TEMP = os.environ.get("TEMP", r"C:\Users\KAZUMA\AppData\Local\Temp")
 A5 = 0xA5A5A5A5
 
-# (任务名, 栈大小字节数) —— 与 tools/dump_task_stacks.cfg 里的 sizes 保持一致
+# (任务名, 栈大小字节数) —— 与 Tools/dump_task_stacks.cfg 里的 sizes 保持一致
 TASKS = [
     ("Fan", 512),
     ("Warm", 512),

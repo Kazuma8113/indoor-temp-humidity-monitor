@@ -2,7 +2,7 @@
 """头文件引用体检：查重、查缺守卫、查守卫重名、查冗余直连。
 
 用法（在工程根目录，Graduation_F407_layered/ 下）：
-    python tools/check_includes.py
+    python Tools/check_includes.py
 
 检查项：
     ① 同名头文件      —— 递归 include path 下，同名头会互相遮蔽（真 bug）

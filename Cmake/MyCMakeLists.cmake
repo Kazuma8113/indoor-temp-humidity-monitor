@@ -52,3 +52,24 @@ foreach(layer ${LAYER_LIST})
     unset(_layer_src)
     unset(_layer_hdr)
 endforeach()
+
+
+# ====== 编译产物同步到源码树 Firmware/（供 git 提交 / 分发）======
+# copy_if_different：内容没变就不写文件，避免无意义地刷新 mtime。
+set(FW_DIR ${CMAKE_SOURCE_DIR}/Firmware)
+function(sync_firmware_to_source_tree)
+    add_custom_command(TARGET ${PROJECT_NAME}.elf POST_BUILD
+            COMMAND ${CMAKE_COMMAND} -E make_directory ${FW_DIR}
+            COMMAND ${CMAKE_COMMAND} -E copy_if_different
+                    ${PROJECT_BINARY_DIR}/${PROJECT_NAME}.bin ${FW_DIR}/${PROJECT_NAME}.bin
+            COMMAND ${CMAKE_COMMAND} -E copy_if_different
+                    ${PROJECT_BINARY_DIR}/${PROJECT_NAME}.hex ${FW_DIR}/${PROJECT_NAME}.hex
+            COMMAND ${CMAKE_COMMAND} -E copy_if_different
+                    ${PROJECT_BINARY_DIR}/${PROJECT_NAME}.map ${FW_DIR}/${PROJECT_NAME}.map
+            COMMAND ${CMAKE_COMMAND} -E copy_if_different
+                    ${PROJECT_BINARY_DIR}/${PROJECT_NAME}.elf ${FW_DIR}/${PROJECT_NAME}.elf
+            COMMENT "同步固件到 ${FW_DIR}")
+endfunction()
+
+# 推迟到当前目录的 CMakeLists.txt 全部执行完再注册（CMake 3.19+）
+cmake_language(DEFER CALL sync_firmware_to_source_tree)
