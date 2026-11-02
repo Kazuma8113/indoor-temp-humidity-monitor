@@ -1,5 +1,6 @@
 #include "app_control.h"
 #include "app_data.h"
+#include "app_diag.h"      /* App_Diag_Kick()：任务打点 */
 
 #include "Humidifier.h"
 #include "Warm.h"
@@ -24,7 +25,6 @@ void App_Humidifier_Run(void) {
 
     for (;;) {
         SensorData_t data;
-        /* 无限等待，不存在超时，所以返回值不用判（只有 NO_WAIT 的调用点才要挡负错误码） */
         osEventFlagsWait(EF_SensorData, EVENT_HUMI_UPDATE, osFlagsWaitAll, osWaitForever);
 
         if (osMutexAcquire(Mutex_SensorData, 0U) == osOK) {
@@ -32,13 +32,16 @@ void App_Humidifier_Run(void) {
             osMutexRelease(Mutex_SensorData);
 
             if (data.Humidity >= data.Humidity_Alarm[1]) {
-                Humid_Status = 0;   /* 顶到上限：无条件关。雾化有扩散滞后，这一条压住过冲 */
+                Humid_Status = 0;
             } else if (data.Humidity <= data.Humidity_Alarm[0]) {
-                Humid_Status = 1;   /* 跌破下限：开 */
+                Humid_Status = 1;
             }
 
-            Humidifier_Set(Humid_Status);   /* 1 = 开，极性由驱动内部处理 */
+            Humidifier_Set(Humid_Status);
         }
+
+        /* 拿到锁却处理失败也要打点：任务是活的，只是这一轮没数据 */
+        App_Diag_Kick(APP_DIAG_TASK_HUMID);
     }
 }
 
@@ -56,15 +59,15 @@ void App_Warm_Run(void) {
             osMutexRelease(Mutex_SensorData);
 
             if (data.Temperature >= data.Temperature_Alarm[0] + TEMP_HYST) {
-                Warm_Status = 0;    /* 升到"下限 + 回差"：关，防止贴着下限抖动 */
+                Warm_Status = 0;
             } else if (data.Temperature <= data.Temperature_Alarm[0]) {
-                Warm_Status = 1;    /* 跌破下限：开 */
+                Warm_Status = 1;
             }
-            /* 下限 ~ 下限+TEMP_HYST 之间：保持原状态，这就是回差带 */
 
-            /* 低电平有效：Warm_Status = 1 → 输出低电平（加热开） */
-            Warm_Set(Warm_Status);   /* 1 = 开；"低电平有效"在驱动内部处理 */
+            Warm_Set(Warm_Status);
         }
+
+        App_Diag_Kick(APP_DIAG_TASK_WARM);
     }
 }
 
@@ -103,5 +106,7 @@ void App_Fan_Run(void) {
             spd = (spd_temp > spd_humi) ? spd_temp : spd_humi;
             Motor_SetSpeed(spd);
         }
+
+        App_Diag_Kick(APP_DIAG_TASK_FAN);
     }
 }

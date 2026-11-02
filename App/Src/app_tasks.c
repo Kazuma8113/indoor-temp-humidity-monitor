@@ -10,6 +10,7 @@
 #include "lcd_spi_154.h"
 #include "ble_data_parse.h"
 #include "app_tick.h"     /* Sem2_*（任务节拍信号量，本层） */
+#include "app_diag.h"     /* App_Diag_Kick()：任务打点 */
 #include "bsp_tim.h"      /* Bsp_Tim_Start() */
 #include "bsp_iwdg.h"     /* Bsp_Iwdg_Feed()：初始化期间顶住看门狗（共 2 处 Bsp 依赖） */
 
@@ -42,18 +43,21 @@ void App_Init_Run(void) {
 void App_Led_Run(void) {
     for (;;) {
         uint8_t LED_Status;
+        static uint16_t now;
+
         osSemaphoreAcquire(Sem2_LED, osWaitForever);
+        now++;
 
         /* 先加锁把状态取到局部变量，随即解锁（App_Led_GetState 内部自带锁） */
         LED_Status = App_Led_GetState();
 
         switch (LED_Status) {
             case LED_STATE_DHT11_FAIL:
-                LED_Flip(200);   /* 0.2s 快闪：DHT11 没起来 */
+                LED_Flip(200, &now);   /* 0.2s 快闪：DHT11 没起来 */
                 break;
 
             case LED_STATE_ON:
-                LED_Flip(500);   /* 0.5s 心跳：正常运行 */
+                LED_Flip(500, &now);   /* 0.5s 心跳：正常运行 */
                 break;
 
             case LED_STATE_OFF:
@@ -61,6 +65,8 @@ void App_Led_Run(void) {
                 LED_Off();
                 break;
         }
+
+        App_Diag_Kick(APP_DIAG_TASK_LED);
     }
 }
 
@@ -83,6 +89,8 @@ void App_Dht11_Run(void) {
                 osEventFlagsSet(EF_SensorData, EVENT_DATA_COMPLETE);
             }
         }
+
+        App_Diag_Kick(APP_DIAG_TASK_DHT11);
     }
 }
 
@@ -129,16 +137,17 @@ void App_Bluetooth_Run(void) {
         Flag = osEventFlagsWait(EF_SensorData, EVENT_BLUE_UPDATE, osFlagsWaitAll, 0U);
         if ((Flag & 0x80000000U) == 0U && (Flag & EVENT_BLUE_UPDATE)) {
             if (osMutexAcquire(Mutex_SensorData, 0U) == osOK) {
-                data = SensorData;      /* 加锁拷贝快照，立刻解锁 */
+                data = SensorData;
                 osMutexRelease(Mutex_SensorData);
 
                 len = sprintf(text, "温度:%u%% 湿度:%u%%\n", data.Temperature, data.Humidity);
-                /* 没发出去（线路一直忙 / DMA 启动失败）就把事件位重新置起来，
-                 * 让下一拍 200ms 补报一次，而不是静默丢一帧。 */
+                /* 没发出去就把事件位重新置起来，让下一拍 200ms 补报一次 */
                 if (Bluetooth_SendHandler((const uint8_t *) text, len) == 0U) {
                     osEventFlagsSet(EF_SensorData, EVENT_BLUE_UPDATE);
                 }
             }
         }
+
+        App_Diag_Kick(APP_DIAG_TASK_BLUETOOTH);
     }
 }

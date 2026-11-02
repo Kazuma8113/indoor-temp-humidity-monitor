@@ -1,16 +1,13 @@
 #include "app_lcd.h"
 #include "app_data.h"
+#include "app_diag.h"      /* App_Diag_Kick()：任务打点；App_Diag_GetWarnId()：告警行 */
 
 #include "lcd_spi_154.h"   /* SPI_LCD_Init / LCD_DisplayText / LCD_DrawLine_H / Lie / Hang */
 #include "app_tick.h"      /* Sem2_LCD（任务节拍信号量） */
 #include "cmsis_os.h"
 
-/* ==================== LCD 上要显示的中文 ====================
- * 字库 (Device/Src/lcd_fonts.c) 与驱动 (lcd_spi_154.c) 已统一为 UTF-8：
- * 汉字索引按 UTF-8 三字节存放，驱动按三字节比对，本文件也是 UTF-8，
- * 所以下面可以直接写中文。
- * 注意：只有已收录进 Chinese_2424 字库的字才能显示；要加新字就在 lcd_fonts.c
- *       的 Chinese_2424 表里补「一行点阵 + 一行索引」，索引用 tools/gen_lcd_font.py 生成。 */
+/* ==================== LCD 上要显示的中文 ==================== */
+/* 汉字索引按 UTF-8 三字节存放，驱动按三字节比对，本文件也是 UTF-8 */
 #define LCD_TXT_TITLE   "室内温湿度监测"
 #define LCD_TXT_TEMP    "温度:"
 #define LCD_TXT_HUMI    "湿度:"
@@ -33,7 +30,7 @@ static void Lcd_DrawStatic(void) {
     LCD_DrawLine_H(Lie(1), Hang(2) + 10, 216);   /* 标题下 */
     LCD_DrawLine_H(Lie(1), Hang(5) + 10, 216);   /* 温度区 / 湿度区 之间 */
     LCD_DrawLine_H(Lie(1), Hang(8) + 10, 216);   /* 底部 */
-    LCD_SetColor(LCD_WHITE);                /* 恢复画笔色，后面的文字才是白的 */
+    LCD_SetColor(LCD_WHITE);                     /* 恢复画笔色，后面的文字才是白的 */
 
     /* 数值列取 Lie(8) 是为了湿度可能出现的 3 位数（100%RH）留出余量 */
     LCD_DisplayText(Lie(2), Hang(3), LCD_TXT_TEMP);
@@ -69,34 +66,69 @@ static void Lcd_DrawValues(const SensorData_t *data) {
     LCD_DisplayNumber(Lie(16), Hang(7), data->Humidity_Alarm[1], 2);
 }
 
+/* ==================== 底部告警行 ==================== */
+#define LCD_ERR_X        Lie(1)
+#define LCD_ERR_Y        208U
+#define LCD_ERR_W        216U
+#define LCD_ERR_H        24U
+#define LCD_ERR_NAME_X   (Lie(1) + 12U * 12U)
+#define LCD_ERR_PREFIX   "Error Task: "
+
+#if (APP_DIAG_SHOW_WARN != 0U)
+
+/* 只在告警任务变化时重绘。名字长短不一，每次都要整行刷黑防残影，
+ * 一次 216x24 像素约 10KB 的 SPI 流量，没必要每 100ms 做一遍。 */
+static void Lcd_DrawError(uint32_t id) {
+    static uint32_t drawn = 0xFFFFFFFFU;   /* 不等于任何合法 id，首帧必画 */
+
+    if (id == drawn)  return;
+    drawn = id;
+
+    /* 背景色在 SPI_LCD_Init() 里已经设成黑色，这里不用再设一次 */
+    LCD_SetTextFont(&CH_Font24);
+    LCD_ClearRect(LCD_ERR_X, LCD_ERR_Y, LCD_ERR_W, LCD_ERR_H);
+
+    if (id != APP_DIAG_NO_BLAME) {
+        LCD_SetColor(LCD_WHITE);
+        LCD_DisplayString(LCD_ERR_X, LCD_ERR_Y, LCD_ERR_PREFIX);
+        LCD_DisplayString(LCD_ERR_NAME_X, LCD_ERR_Y, App_Diag_GetTaskName(id));
+    }
+}
+#endif /* APP_DIAG_SHOW_WARN */
+
 void App_Lcd_Run(void) {
-    static uint8_t static_drawn = 0;
+    static uint8_t static_frame = 0;
 
     for (;;) {
         SensorData_t data;
         uint32_t Flag;
-
-        /* 刷新节奏由节拍服务控制（100 ms） */
         osSemaphoreAcquire(Sem2_LCD, osWaitForever);
 
         Flag = osEventFlagsWait(EF_SensorData, EVENT_LCD_UPDATE, osFlagsWaitAll, 0U);
-
         if ((Flag & 0x80000000U) == 0U && (Flag & EVENT_LCD_UPDATE)) {
             /* 加锁拷贝快照 */
             if (osMutexAcquire(Mutex_SensorData, 0U) == osOK) {
                 data = SensorData;
                 osMutexRelease(Mutex_SensorData);
 
-                if (!static_drawn) {        /* 第一帧真数据：先把框架补上，再填数值 */
+                /* 第一帧真数据：先把框架补上，再填数值 */
+                if (!static_frame) {
                     Lcd_DrawStatic();
-                    static_drawn = 1U;
+                    static_frame = 1U;
                 }
                 Lcd_DrawValues(&data);
             }
-        } else if (!static_drawn) {
+        } else if (!static_frame) {
             /* 还没拿到第一帧数据：先把框架和占位符画出来。 */
             Lcd_DrawStatic();
-            static_drawn = 1U;
+            static_frame = 1U;
         }
+
+#if (APP_DIAG_SHOW_WARN != 0U)
+        /* 告警行：任何任务超期都会在这一行露出来 */
+        Lcd_DrawError(App_Diag_GetWarnId());
+#endif
+
+        App_Diag_Kick(APP_DIAG_TASK_LCD);
     }
 }

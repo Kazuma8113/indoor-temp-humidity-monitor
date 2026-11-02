@@ -49,9 +49,6 @@ void Fan_StartTask(void *argument) {
     App_Fan_Run();          
 }
 
-/* 第 9 个任务：.ioc 里没有，由 freertos.c 的 USER CODE 段手工 osThreadNew()。
- * 之所以从 CubeMX 任务表里拿掉，是为了避免动 .ioc 重新生成（会覆盖 USER CODE、
- * 把 SPI3 挪回 PC10/PC12、重复 system_stm32f4xx.c）。 */
 void Watchdog_StartTask(void *argument) {
     (void) argument;
     App_Watchdog_Run();      

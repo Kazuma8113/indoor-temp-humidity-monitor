@@ -16,7 +16,7 @@
 void LED_Init(void);
 
 /* 翻转一次电平，然后延时 Time 毫秒（让出 CPU） */
-void LED_Flip(uint32_t Time);
+void LED_Flip(uint16_t flip_time, uint16_t *now_time);
 
 /* 熄灭 */
 void LED_Off(void);

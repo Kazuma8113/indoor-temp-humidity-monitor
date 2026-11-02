@@ -30,6 +30,8 @@
 /* USER CODE BEGIN Includes */
 #include "app_tick.h"    /* App_Heartbeat()：任务节拍分频在 App 层 */
 #include "bsp_usart1.h"  /* 串口收发完成/出错回调转调（Bsp 层） */
+#include "app_diag.h"    /* App_Diag_Init()：从 .noinit 保留区读回上一轮故障记录 */
+#include "app_watchdog.h" /* App_Watchdog_ResetCause()：取本次复位原因 */
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -102,7 +104,13 @@ int main(void)
   MX_SPI3_Init();
   MX_IWDG_Init();
   /* USER CODE BEGIN 2 */
+    /* 复位后第一件事：取复位原因，读回上一轮的故障记录。*/
+    uint32_t reset_cause = App_Watchdog_ResetCause();
+    App_Diag_Init(reset_cause);
 
+    /* 上一轮是看门狗咬的、且记下了元凶：停在故障界面等人工复位，不再进系统。
+     * 命中条件时这个函数不返回，后面的 osKernelInitialize() 不会执行。 */
+    App_Watchdog_FaultScreen(reset_cause);
   /* USER CODE END 2 */
 
   /* Init scheduler */
@@ -200,8 +208,7 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 {
   /* USER CODE BEGIN Callback 0 */
     if (htim->Instance == TIM1) {
-        /* 1ms 节拍的分频（谁多久跑一次、唤醒哪个任务）在 App/Src/app_tick.c。
-         * 本文件只负责"TIM1 到点了"这件事。 */
+        /* 1ms 节拍的分频 */
         App_Heartbeat();
     }
   /* USER CODE END Callback 0 */

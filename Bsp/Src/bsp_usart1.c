@@ -48,7 +48,7 @@ void Bsp_Usart1_OnError(void) {
     __HAL_UART_CLEAR_FEFLAG(&huart1);     /* 停止位 */
     __HAL_UART_CLEAR_NEFLAG(&huart1);     /* 噪声 */
 
-    Bsp_Usart1_Tx_IDLE();                  /* 恢复发送空闲标志位 */
+    Bsp_Usart1_Tx_IDLE();                 /* 恢复发送空闲标志位 */
 
     /* 重启 DMA 接收（错误可能导致接收停摆）。
      * 同时把读写指针归零：DMA 重新从缓冲头部开始写，旧位置上的残留不能再用，

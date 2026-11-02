@@ -1,7 +1,11 @@
 #ifndef BSP_IWDG_H
 #define BSP_IWDG_H
 
-/* 独立看门狗：喂一次狗，把计数器重装回 Reload 值。*/
+#include <stdint.h>
+
+
 void Bsp_Iwdg_Feed(void);
+uint8_t Bsp_Iwdg_IsResetFromWatchdog(void);
+void Bsp_Iwdg_ClearResetFlags(void);
 
 #endif /* BSP_IWDG_H */

@@ -2,7 +2,6 @@
 #define APP_THREADS_H
 
 /* ==================== CubeMX 线程入口 ====================
- *
  * 这 9 个函数名是 CubeMX (.ioc 的 FREERTOS.Tasks01) 里的 "Entry Function"，
  * MX_FREERTOS_Init() 用 osThreadNew() 把它们注册成 FreeRTOS 线程。
  * 最后一个 Watchdog_StartTask 的优先级是 1（osPriorityIdle），全工程最低。

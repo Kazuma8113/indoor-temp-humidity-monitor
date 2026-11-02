@@ -1,4 +1,5 @@
 #include "app_tick.h"
+#include "app_diag.h"      /* App_Diag_TickIsr()：诊断模块的 1ms 自由计数 */
 
 /* 4 个二值信号量：在这里定义，在 Core/Src/freertos.c 的 RTOS_SEMAPHORES 段创建。 */
 osSemaphoreId_t Sem2_LED;
@@ -18,6 +19,9 @@ void App_Heartbeat(void) {
     static uint8_t LCD_Count;
     static uint16_t DHT11_Count;
     static uint8_t Bluetooth_Count;
+
+    /* 诊断模块的 1ms 自由计数：每个节拍都推一次，任务打点的时间戳靠它 */
+    App_Diag_TickIsr();
 
     /* 用二值信号量控制CPU资源占用，避免高优先级任务一直占用CPU
      * 计数器必须"无条件"清零：防止信号量还是满的（任务没来得及取走）时，计数值溢出*/

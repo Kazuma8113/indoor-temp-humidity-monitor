@@ -23,12 +23,12 @@ void App_Led_SetState(uint8_t state) {
         led_state = state;
         osMutexRelease(led_mutex);
     } else {
-        led_state = state;   /* 兜底：锁还没建好（极罕见），单字节写本身是原子的 */
+        led_state = state;   /* 兜底：锁还没建好 */
     }
 }
 
 uint8_t App_Led_GetState(void) {
-    uint8_t state = led_state;   /* 兜底值：拿不到锁时退回无保护读（单字节读原子） */
+    uint8_t state = led_state;   /* 兜底值：拿不到锁时退回无保护读 */
 
     if (led_mutex != NULL &&
         osMutexAcquire(led_mutex, osWaitForever) == osOK) {

@@ -1,13 +1,12 @@
 #include "app_data.h"
 #include "app_led.h"    /* LED 业务状态机（已从 Device 提到 App） */
 
-/* ==================== 全局唯一的共享数据实例 ====================
- * 零初始化 + 给定阈值默认值，避免首次读取到随机值。 */
+/* ==================== 全局唯一的共享数据实例 ==================== */
 SensorData_t SensorData = {
         .Temperature = 0,
-        .Temperature_Alarm = {20, 25},
+        .Temperature_Alarm = {0, 99},
         .Humidity = 0,
-        .Humidity_Alarm = {50, 70}
+        .Humidity_Alarm = {0, 99}
 };
 
 static const osMutexAttr_t s_mutex_attr = {

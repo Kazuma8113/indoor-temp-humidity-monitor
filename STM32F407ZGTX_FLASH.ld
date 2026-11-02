@@ -202,6 +202,25 @@ SECTIONS
     . = ALIGN(8);
   } >RAM
 
+  /* 看门狗故障记录保留区（NOLOAD = 不占 Flash，上电不初始化）
+   *
+   * 为什么单独开一段：startup_stm32f407zgtx.s 的 LoopFillZerobss 只清
+   * _sbss~_ebss 之间的字节，只要这段不在 .bss 的大括号里就不会被清零，
+   * IWDG 复位（不断电）之后内容原样保留。
+   *
+   * 为什么放 CCM RAM 而不是主 RAM：主 RAM 只有 128KB，而记录区必须钉死
+   * 绝对地址（BL 和 APP 是两个独立链接脚本，各自的 .bss 大小不同，
+   * 写成"接在 .bss 后面"会算出不同地址）。钉在 0x20018000 会让链接器
+   * 把中间 96KB 空洞算进 RAM 使用率，报告从 32KB 跳到 98KB。
+   * 放 CCM 则完全不占主 RAM，且 CPU 零等待访问。
+   * CCM 不参与 DMA，但这里只存几个变量，不受影响。 */
+  .noinit 0x10000000 (NOLOAD) :
+  {
+    . = ALIGN(4);
+    KEEP(*(.noinit))
+    . = ALIGN(4);
+  } >CCMRAM
+
   /* Remove information from the compiler libraries */
   /DISCARD/ :
   {

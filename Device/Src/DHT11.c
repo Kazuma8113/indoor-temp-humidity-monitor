@@ -1,7 +1,5 @@
-#include "FreeRTOS.h"
-#include "task.h"
-
 #include "DHT11.h"
+
 #include "bsp_dht11.h"    /* DHT11 引脚：读写 + 方向切换（BSP 层直调 HAL） */
 #include "DWT.h"
 
@@ -117,11 +115,8 @@ uint8_t DHT11_Read_Data(uint8_t *temp, uint8_t *humi) {
 
     DHT11_Rst();                        // 复位并准备通信（内含 20ms 延时，必须在临界区外）
 
-    /* 应答信号 + 40 位数据全程挡中断（约 4~5ms）。
-     * taskENTER_CRITICAL 走 BASEPRI：本工程最低的中断优先级是 5
-     * （configLIBRARY_MAX_SYSCALL_INTERRUPT_PRIORITY），所以 TIM1/SysTick/TIM6/uart/DMA
-     * 全部被挡住，等效于 __disable_irq()。自带嵌套计数，比手写 PRIMASK 更稳。 */
-    taskENTER_CRITICAL();               // ↓↓↓ 屏蔽中断，保护位时序 ↓↓↓
+    /* 应答信号 + 40 位数据全程挡中断（约 4~5ms）*/
+    __disable_irq();              // 屏蔽中断，保护位时序
 
     if (DHT11_Check() == 0)             // 检测到DHT11响应
     {
@@ -137,7 +132,7 @@ uint8_t DHT11_Read_Data(uint8_t *temp, uint8_t *humi) {
         }
     }
 
-    taskEXIT_CRITICAL();                // ↑↑↑ 恢复中断 ↑↑↑
+    __enable_irq();                   // 恢复中断
 
     return result;
 }

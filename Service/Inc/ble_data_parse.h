@@ -50,7 +50,7 @@ void Bluetooth_OnIdle(void);
  * 返回 1 = 已交给 DMA 发出，0 = 没发出去（参数非法 / 线路一直忙 / DMA 启动失败）。
  * 返回 1 只代表"开始发了"，不代表对端收到 —— 那是停等协议 ACK 的事。
  *
- * 只能在**任务上下文**调用：内部会 osDelay()，且 tx_buf 是单实例。
+ * 只能在任务上下文调用：内部会 osDelay()，且 tx_buf 是单实例。
  * 目前只有 App_Bluetooth_Run 一个任务使用；若将来多任务要发，必须先加互斥。 */
 uint8_t Bluetooth_SendHandler(const uint8_t *buf, uint16_t len);
 
