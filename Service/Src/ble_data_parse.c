@@ -129,8 +129,8 @@ static int FrameRx_Read(char *data_buf, uint16_t buf_len, uint16_t *data_len) {
     if (frame_ready) {
         uint16_t n = frame_len;
 
-        if (n > (uint16_t) (buf_len - 1U)) {
-            n = (uint16_t) (buf_len - 1U);
+        if (n > buf_len - 1U) {
+            n = buf_len - 1U;
         }
         memcpy(data_buf, frame_buf, (size_t) n);
         data_buf[n] = '\0';
